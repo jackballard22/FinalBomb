@@ -32,7 +32,15 @@ def setup_phases():
     # bind the 7-segment display to the LCD GUI so that it can be paused/unpaused from the GUI
     gui.setTimer(timer)
     # setup the keypad thread
-    keypad = Keypad(component_keypad, keypad_target)
+    # build Wordle grid in LCD
+    gui.setupWordleGrid()
+
+# pick a random 5-letter word
+    word_list = ["APPLE", "BRAIN", "CHAIR", "LIGHT", "MONEY", "WATER"]
+    wordle_target = random.choice(word_list)
+
+    keypad = WordlePhase(gui, wordle_target)
+
     # setup the jumper wires thread
     wires = Wires(component_wires, wires_target)
     # setup the pushbutton thread

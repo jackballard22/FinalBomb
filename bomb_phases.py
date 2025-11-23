@@ -123,6 +123,21 @@ class Lcd(Frame):
         # exit the application
         exit(0)
 
+    def setupWordleGrid(self):
+        self.wordle_labels = []
+        rows = 6
+        cols = 5
+
+        start_row = 7  # after timer/keypad/wires/etc
+        for r in range(rows):
+            row_list = []
+            for c in range(cols):
+                lbl = Label(self, text="", width=4, height=2, font=("Courier New", 18), bg="black", fg="white", relief="solid", bd=1)
+            lbl.grid(row=start_row + r, column=c, padx=3, pady=3)
+            row_list.append(lbl)
+        self.wordle_labels.append(row_list)
+
+
 # template (superclass) for various bomb components/phases
 class PhaseThread(Thread):
     def __init__(self, name, component=None, target=None):
