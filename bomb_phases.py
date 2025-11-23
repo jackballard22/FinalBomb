@@ -257,6 +257,125 @@ class Wires(PhaseThread):
         else:
             # TODO
             pass
+#Chat_GPT Helped with the implementation of the WordlePhase class to allow the keypad to work with the wordle phase.
+class WordlePhase(PhaseThread):
+    def __init__(self, gui, target_word, name="Wordle"):
+        super().__init__(name, None, target_word)
+        self.gui = gui
+        self.answer = target_word
+        self.attempt = 0
+        self.current = ""
+        self.max_attempts = 6
+        self.word_len = 5
+
+        # T9 mapping
+        self.t9 = {
+            '2': ["A", "B", "C"],
+            '3': ["D", "E", "F"],
+            '4': ["G", "H", "I"],
+            '5': ["J", "K", "L"],
+            '6': ["M", "N", "O"],
+            '7': ["P", "Q", "R", "S"],
+            '8': ["T", "U", "V"],
+            '9': ["W", "X", "Y", "Z"]
+        }
+
+        self.last_key = None
+        self.last_time = 0
+        self.t9_delay = 0.8  # seconds to lock letter
+
+    def run(self):
+        self._running = True
+
+        while self._running:
+            keys = component_keypad.pressed_keys
+
+            if keys:
+                key = str(keys[0])
+
+                # ---- DELETE ----
+                if key == "*":
+                    if self.current:
+                        self.current = self.current[:-1]
+                        self.update_row_display()
+                    sleep(0.2)
+                    continue
+
+                # ---- ENTER ----
+                if key == "#":
+                    self.submit_guess()
+                    sleep(0.2)
+                    continue
+
+                # ---- T9 LETTER ----
+                if key in self.t9:
+                    now = time.time()
+
+                    if key == self.last_key and (now - self.last_time) < self.t9_delay:
+                        # cycle to next letter
+                        letters = self.t9[key]
+                        current_letter = self.current[-1] if self.current else None
+
+                        if current_letter in letters:
+                            idx = letters.index(current_letter)
+                            new_letter = letters[(idx + 1) % len(letters)]
+                        else:
+                            new_letter = letters[0]
+                        self.current = self.current[:-1] + new_letter if self.current else new_letter
+                    else:
+                        # start new letter
+                        self.current += self.t9[key][0]
+
+                    self.last_key = key
+                    self.last_time = now
+                    self.update_row_display()
+                    sleep(0.25)
+
+            sleep(0.05)
+
+    def update_row_display(self):
+        row = self.gui.wordle_labels[self.attempt]
+        for i in range(self.word_len):
+            row[i]["text"] = self.current[i] if i < len(self.current) else ""
+
+    def submit_guess(self):
+        guess = self.current
+        if len(guess) != self.word_len:
+            return  # not full word yet
+
+        # color feedback
+        colors = ["gray"] * 5
+        ans_list = list(self.answer)
+
+        # GREEN
+        for i in range(5):
+            if guess[i] == ans_list[i]:
+                colors[i] = "green"
+                ans_list[i] = None
+
+        # YELLOW
+        for i in range(5):
+            if colors[i] == "gray" and guess[i] in ans_list:
+                colors[i] = "yellow"
+                ans_list[ans_list.index(guess[i])] = None
+
+        # apply colors
+        for i in range(5):
+            self.gui.wordle_labels[self.attempt][i].config(bg=colors[i])
+
+        # win
+        if guess == self.answer:
+            self._defused = True
+            self._running = False
+            return
+
+        # next attempt
+        self.attempt += 1
+        self.current = ""
+
+        if self.attempt >= self.max_attempts:
+            self._failed = True  # STRIKE
+            self._running = False
 
 # the pushbutton phase
 class Button(PhaseThread):
