@@ -14,6 +14,17 @@ from time import sleep
 import os
 import sys
 
+import random
+
+WORDLE_WORDS = [
+    "SPOOK", "GHOST", "GRAVE", "SKULL", 
+    "BLOOD", "CURSE", "CREEP", "SCARE", 
+    "BONES", "EERIE", "FANGS", "MASKS", 
+    "HAUNT", "DEVIL", "DEMON", "WITCH",
+]
+
+
+
 #########
 # classes
 #########
@@ -29,6 +40,8 @@ class Lcd(Frame):
         self._button = None
         # setup the initial "boot" GUI
         self.setupBoot()
+        self.wordle_game_over = False
+
 
     # sets up the LCD "boot" GUI
     def setupBoot(self):
@@ -43,11 +56,25 @@ class Lcd(Frame):
 
     # sets up the LCD GUI
     def setup(self):
+        self.t9_map = {
+            "2": "ABC",
+            "3": "DEF",
+            "4": "GHI",
+            "5": "JKL",
+            "6": "MNO",
+            "7": "PRS",
+            "8": "TUV",
+            "9": "WXY"
+        }
+
+        self.t9_state = {key: 0 for key in self.t9_map}   # rotation counters
+
+
         # the timer
         self._ltimer = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Time left: ")
         self._ltimer.grid(row=1, column=0, columnspan=3, sticky=W)
         # the keypad passphrase
-        self._lkeypad = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Keypad phase: ")
+        self._lkeypad = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wordle Keypad phase: ")
         self._lkeypad.grid(row=2, column=0, columnspan=3, sticky=W)
         # the jumper wires status
         self._lwires = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wires phase: ")
@@ -69,6 +96,8 @@ class Lcd(Frame):
             self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
             self._bquit.grid(row=6, column=2, pady=40)
 
+        self.wordle_target = random.choice(WORDLE_WORDS)
+        print("DEBUG spooky Wordle answer =", self.wordle_target)
 
         # allow Enter key on real keyboard
         self.bind_all("<Return>", lambda event: self.wordle_submit_row())
@@ -134,19 +163,6 @@ class Lcd(Frame):
         # Wordle typing state
         self.current_row = 0
         self.current_col = 0
-        self.wordle_set_letter(0, 0, "A")
-
-        #self.wordle_test_word("APPLE")
-        #self.wordle_test_word("MANGO")
-
-        self.wordle_submit_row()   # lock APPLE
-        self.wordle_submit_row()   # lock MANGO
-
-
-       
-
-
-
 
 
 
@@ -176,6 +192,8 @@ class Lcd(Frame):
         #if self.current_col == 5:
             #self.current_row += 1
             #self.current_col = 0
+        for k in self.t9_state:
+            self.t9_state[k] = 0
 
 
     def wordle_test_word(self, word):
@@ -189,9 +207,47 @@ class Lcd(Frame):
             self.wordle_labels[self.current_row][self.current_col]["text"] = ""
 
     def wordle_submit_row(self):
-        # Require full 5-letter word
-        if self.current_col < 5:
+        if self.wordle_game_over:
             return
+
+    # Must have exactly 5 letters
+        row_text = "".join(self.wordle_labels[self.current_row][c]["text"] for c in range(5))
+        if len(row_text) < 5:
+            return
+
+        guess = row_text.upper()
+        target = self.wordle_target.upper()
+
+        for col in range(5):
+            letter = guess[col]
+
+            if letter == target[col]:
+                self.wordle_labels[self.current_row][col]["bg"] = "#538d4e"  
+            elif letter in target:
+                self.wordle_labels[self.current_row][col]["bg"] = "#b59f3b"  
+            else:
+                self.wordle_labels[self.current_row][col]["bg"] = "#3a3a3c"  
+
+        # Check for win
+        if guess == target:
+            self.wordle_game_over = True
+            self.after(700, self.wordle_win)  # delay for color to show
+            return
+
+        #If not a win check if its the last row
+        if self.current_row == 5:
+            self.wordle_game_over = True
+            self.after(700, self.wordle_lose)
+            return
+
+        # Otherwise go to next row
+        self.current_row += 1
+        self.current_col = 0
+        for k in self.t9_state:
+            self.t9_state[k] = 0
+
+    
+
 
     # Build guess string
         guess = "".join(self.wordle_labels[self.current_row][i]["text"] for i in range(5))
@@ -258,8 +314,41 @@ class Lcd(Frame):
                 target_list[target_list.index(guess[i])] = None
 
         return result
+    def wordle_win(self):
+        # Remove Wordle frame
+        self.game_frame.destroy()
 
+        # Tell bomb this phase is defused
+        self._lkeypad["text"] = "Wordle Keypad phase: DEFUSED"
 
+    # TODO: call the next bomb phase setup
+    # example:
+    # self.start_wires_phase()
+
+    def wordle_lose(self):
+    # Remove Wordle frame
+        self.game_frame.destroy()
+
+        self._lkeypad["text"] = "Wordle Keypad phase: FAILED"
+
+    # apply a strike
+    # (example, depends on your strike system)
+    # self.addStrike()
+
+    # continue to next phase or trigger explosion
+
+    def wordle_confirm_letter(self):
+    # If the tile already has a letter, advance
+        if self.current_col < 5 and self.wordle_labels[self.current_row][self.current_col]["text"] != "":
+            self.current_col += 1
+    
+    # Reset T9 rotation so next letter starts fresh
+        for k in self.t9_state:
+            self.t9_state[k] = 0
+
+    def wordle_type_letter_preview(self, letter):
+        if self.current_col < 5:
+            self.wordle_labels[self.current_row][self.current_col]["text"] = letter
 
 
     # lets us pause/unpause the timer (7-segment display)
@@ -408,13 +497,33 @@ class Keypad(PhaseThread):
                     continue
 
                 # log the key
-                self._value += str(key)
+                if str(key) in gui.t9_map:
+                    # cycle through the letters
+                    letters = gui.t9_map[str(key)]
+                    idx = gui.t9_state[str(key)]
+                    letter = letters[idx]
+
+                    gui.wordle_type_letter_preview(letter)
+
+                    # rotate for next press
+                    gui.t9_state[str(key)] = (idx + 1) % len(letters)
+
+                    # type the letter onto the Wordle board
+                    gui.wordle_type_letter(letter)
+
+                elif str(key) == "#":
+                    gui.wordle_submit_row()
+
+                elif str(key) == "*":
+                    gui.wordle_backspace()
+                
+                elif str(key) == "1":
+                    # CONFIRM the current letter and move to next column
+                    gui.wordle_confirm_letter()
+
+
                 # the combination is correct -> phase defused
-                if (self._value == self._target):
-                    self._defused = True
-                # the combination is incorrect -> phase failed (strike)
-                elif (self._value != self._target[0:len(self._value)]):
-                    self._failed = True
+                
             sleep(0.1)
 
     # returns the keypad combination as a string
