@@ -10,7 +10,7 @@ from bomb_configs import *
 from tkinter import *
 import tkinter
 from threading import Thread
-from time import sleep
+from time import sleep, time
 import os
 import sys
 
@@ -132,10 +132,20 @@ class Lcd(Frame):
         for r in range(rows):
             row_list = []
             for c in range(cols):
-                lbl = Label(self, text="", width=4, height=2, font=("Courier New", 18), bg="black", fg="white", relief="solid", bd=1)
-            lbl.grid(row=start_row + r, column=c, padx=3, pady=3)
-            row_list.append(lbl)
-        self.wordle_labels.append(row_list)
+                lbl = Label(
+                    self,
+                    text="",
+                    width=4,
+                    height=2,
+                    font=("Courier New", 18),
+                    bg="black",
+                    fg="white",
+                    relief="solid",
+                    bd=1
+                )
+                lbl.grid(row=start_row + r, column=c, padx=3, pady=3)
+                row_list.append(lbl)
+            self.wordle_labels.append(row_list)
 
 
 # template (superclass) for various bomb components/phases
@@ -309,7 +319,7 @@ class WordlePhase(PhaseThread):
 
                 # ---- T9 LETTER ----
                 if key in self.t9:
-                    now = time.time()
+                    now = time()
 
                     if key == self.last_key and (now - self.last_time) < self.t9_delay:
                         # cycle to next letter
