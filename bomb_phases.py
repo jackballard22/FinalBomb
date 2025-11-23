@@ -10,7 +10,7 @@ from bomb_configs import *
 from tkinter import *
 import tkinter
 from threading import Thread
-from time import sleep, time
+from time import sleep
 import os
 import sys
 
@@ -69,6 +69,199 @@ class Lcd(Frame):
             self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
             self._bquit.grid(row=6, column=2, pady=40)
 
+
+        # allow Enter key on real keyboard
+        self.bind_all("<Return>", lambda event: self.wordle_submit_row())
+        # Letter typing (A–Z)
+        self.bind_all("<Key>", self.wordle_keypress)
+
+
+        # =====================================================
+        # MINIGAME FRAME (bottom-left)
+        # =====================================================
+
+        self.game_frame = Frame(
+            self,
+            bg="gray20",
+            width=470,      # adjust size if needed
+            height=720,     # adjust size if needed
+            highlightthickness=2,
+            highlightbackground="#00ff00"  # green border to see it clearly
+        )
+
+        # Put it at the bottom-left
+        self.game_frame.grid(
+            row=6,
+            column=0,
+            columnspan=2,   # gives you more horizontal room
+            sticky="nw",
+            padx=20,
+            pady=20
+        )
+
+        # Prevent frame from shrinking to fit contents (important)
+        self.game_frame.grid_propagate(False)
+        MAX_ATTEMPTS = 6      # 6 rows
+        WORD_LENGTH = 5       # 5 columns
+        FONT = ("Courier New", 24, "bold")
+
+        COLORS = {
+            "empty": "black"
+        }
+
+        # store a reference so later we can update tiles
+        self.wordle_labels = []
+
+        for row in range(MAX_ATTEMPTS):
+            row_labels = []
+            for col in range(WORD_LENGTH):
+                lbl = Label(
+                    self.game_frame,
+                    text="",
+                    width=4,
+                    height=2,
+                    font=FONT,
+                    relief="solid",
+                    bg=COLORS["empty"],
+                    fg="white",
+                    bd=2
+                )
+                lbl.grid(row=row, column=col, padx=6, pady=6)
+                row_labels.append(lbl)
+
+            self.wordle_labels.append(row_labels)
+        
+        # Wordle typing state
+        self.current_row = 0
+        self.current_col = 0
+        self.wordle_set_letter(0, 0, "A")
+
+        #self.wordle_test_word("APPLE")
+        #self.wordle_test_word("MANGO")
+
+        self.wordle_submit_row()   # lock APPLE
+        self.wordle_submit_row()   # lock MANGO
+
+
+       
+
+
+
+
+
+
+
+    def wordle_set_letter(self, row, col, letter):
+        self.wordle_labels[row][col]["text"] = letter.upper()
+
+    def wordle_type_letter(self, letter):
+        
+        # Only allow letters A–Z (optional safety check)
+        if not letter.isalpha() or len(letter) != 1:
+            return
+        
+        # If row is full, do nothing
+        if self.current_row >= 6:
+            return
+        
+        if self.current_col >= 5:  # MAX_ATTEMPTS
+            return
+
+        
+        # Place the letter
+        self.wordle_labels[self.current_row][self.current_col]["text"] = letter.upper()
+        self.current_col += 1
+        
+        # If the row is now full, advance to the next row
+        #if self.current_col == 5:
+            #self.current_row += 1
+            #self.current_col = 0
+
+
+    def wordle_test_word(self, word):
+        for letter in word:
+            self.wordle_type_letter(letter)
+
+    def wordle_backspace(self):
+
+        if self.current_col > 0:
+            self.current_col -= 1
+            self.wordle_labels[self.current_row][self.current_col]["text"] = ""
+
+    def wordle_submit_row(self):
+        # Require full 5-letter word
+        if self.current_col < 5:
+            return
+
+    # Build guess string
+        guess = "".join(self.wordle_labels[self.current_row][i]["text"] for i in range(5))
+
+    # Temporary target word — later we’ll link this to the bomb logic!
+        target = "APPLE"
+
+    # Evaluate guess
+        colors = self.wordle_check_row(guess, target)
+
+    # Apply colors to labels
+        for i in range(5):
+            if colors[i] == "green":
+                self.wordle_labels[self.current_row][i].config(bg="#538d4e")   # green
+            elif colors[i] == "yellow":
+                self.wordle_labels[self.current_row][i].config(bg="#b59f3b")   # yellow
+            else:
+                self.wordle_labels[self.current_row][i].config(bg="#3a3a3c")   # gray
+
+    # After coloring, move to next row
+        self.current_row += 1
+        self.current_col = 0
+
+    def wordle_keypress(self, event):
+        # ignore special keys
+        if len(event.char) != 1:
+            return
+
+        char = event.char.upper()
+
+        # A–Z letters → type them
+        if "A" <= char <= "Z":
+            self.wordle_type_letter(char)
+
+    # Backspace → delete
+        elif event.keysym == "BackSpace":
+            self.wordle_backspace()
+
+    # Enter key already handled separately
+    def wordle_check_row(self, guess, target):
+        """
+        Returns a list of 5 color results for this guess.
+        'green'  = correct letter, correct position
+        'yellow' = correct letter, wrong position
+        'gray'   = not in the word at all
+        """
+
+        result = ["gray"] * 5
+        target_list = list(target)
+
+    # Pass 1: Mark greens
+        for i in range(5):
+            if guess[i] == target[i]:
+                result[i] = "green"
+                target_list[i] = None  # remove so yellow doesn't reuse
+
+    # Pass 2: Mark yellows
+        for i in range(5):
+            if result[i] == "green":
+                continue
+
+            if guess[i] in target_list:
+                result[i] = "yellow"
+                target_list[target_list.index(guess[i])] = None
+
+        return result
+
+
+
+
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
         self._timer = timer
@@ -122,31 +315,6 @@ class Lcd(Frame):
                 pin.value = True
         # exit the application
         exit(0)
-
-    def setupWordleGrid(self):
-        self.wordle_labels = []
-        rows = 6
-        cols = 5
-
-        start_row = 7  # after timer/keypad/wires/etc
-        for r in range(rows):
-            row_list = []
-            for c in range(cols):
-                lbl = Label(
-                    self,
-                    text="",
-                    width=4,
-                    height=2,
-                    font=("Courier New", 18),
-                    bg="black",
-                    fg="white",
-                    relief="solid",
-                    bd=1
-                )
-                lbl.grid(row=start_row + r, column=c, padx=3, pady=3)
-                row_list.append(lbl)
-            self.wordle_labels.append(row_list)
-
 
 # template (superclass) for various bomb components/phases
 class PhaseThread(Thread):
@@ -233,6 +401,12 @@ class Keypad(PhaseThread):
                     except:
                         key = ""
                     sleep(0.1)
+                # If the key is ENTER (#), submit the Wordle row
+                if str(key) == "#":
+                    # call GUI's submit method safely
+                    gui.wordle_submit_row()
+                    continue
+
                 # log the key
                 self._value += str(key)
                 # the combination is correct -> phase defused
@@ -267,125 +441,6 @@ class Wires(PhaseThread):
         else:
             # TODO
             pass
-#Chat_GPT Helped with the implementation of the WordlePhase class to allow the keypad to work with the wordle phase.
-class WordlePhase(PhaseThread):
-    def __init__(self, gui, target_word, name="Wordle"):
-        super().__init__(name, None, target_word)
-        self.gui = gui
-        self.answer = target_word
-        self.attempt = 0
-        self.current = ""
-        self.max_attempts = 6
-        self.word_len = 5
-
-        # T9 mapping
-        self.t9 = {
-            '2': ["A", "B", "C"],
-            '3': ["D", "E", "F"],
-            '4': ["G", "H", "I"],
-            '5': ["J", "K", "L"],
-            '6': ["M", "N", "O"],
-            '7': ["P", "Q", "R", "S"],
-            '8': ["T", "U", "V"],
-            '9': ["W", "X", "Y", "Z"]
-        }
-
-        self.last_key = None
-        self.last_time = 0
-        self.t9_delay = 0.8  # seconds to lock letter
-
-    def run(self):
-        self._running = True
-
-        while self._running:
-            keys = component_keypad.pressed_keys
-
-            if keys:
-                key = str(keys[0])
-
-                # ---- DELETE ----
-                if key == "*":
-                    if self.current:
-                        self.current = self.current[:-1]
-                        self.update_row_display()
-                    sleep(0.2)
-                    continue
-
-                # ---- ENTER ----
-                if key == "#":
-                    self.submit_guess()
-                    sleep(0.2)
-                    continue
-
-                # ---- T9 LETTER ----
-                if key in self.t9:
-                    now = time()
-
-                    if key == self.last_key and (now - self.last_time) < self.t9_delay:
-                        # cycle to next letter
-                        letters = self.t9[key]
-                        current_letter = self.current[-1] if self.current else None
-
-                        if current_letter in letters:
-                            idx = letters.index(current_letter)
-                            new_letter = letters[(idx + 1) % len(letters)]
-                        else:
-                            new_letter = letters[0]
-                        self.current = self.current[:-1] + new_letter if self.current else new_letter
-                    else:
-                        # start new letter
-                        self.current += self.t9[key][0]
-
-                    self.last_key = key
-                    self.last_time = now
-                    self.update_row_display()
-                    sleep(0.25)
-
-            sleep(0.05)
-
-    def update_row_display(self):
-        row = self.gui.wordle_labels[self.attempt]
-        for i in range(self.word_len):
-            row[i]["text"] = self.current[i] if i < len(self.current) else ""
-
-    def submit_guess(self):
-        guess = self.current
-        if len(guess) != self.word_len:
-            return  # not full word yet
-
-        # color feedback
-        colors = ["gray"] * 5
-        ans_list = list(self.answer)
-
-        # GREEN
-        for i in range(5):
-            if guess[i] == ans_list[i]:
-                colors[i] = "green"
-                ans_list[i] = None
-
-        # YELLOW
-        for i in range(5):
-            if colors[i] == "gray" and guess[i] in ans_list:
-                colors[i] = "yellow"
-                ans_list[ans_list.index(guess[i])] = None
-
-        # apply colors
-        for i in range(5):
-            self.gui.wordle_labels[self.attempt][i].config(bg=colors[i])
-
-        # win
-        if guess == self.answer:
-            self._defused = True
-            self._running = False
-            return
-
-        # next attempt
-        self.attempt += 1
-        self.current = ""
-
-        if self.attempt >= self.max_attempts:
-            self._failed = True  # STRIKE
-            self._running = False
 
 # the pushbutton phase
 class Button(PhaseThread):
@@ -455,3 +510,4 @@ class Toggles(PhaseThread):
         else:
             # TODO
             pass
+

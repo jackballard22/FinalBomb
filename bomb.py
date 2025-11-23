@@ -8,8 +8,6 @@
 from bomb_configs import *
 # import the phases
 from bomb_phases import *
-import random
-
 
 ###########
 # functions
@@ -19,8 +17,6 @@ def bootup(n=0):
     gui._lscroll["text"] = boot_text.replace("\x00", "")
     # configure the remaining GUI widgets
     gui.setup()
-    setup_phases()
-    check_phases()
     # setup the phase threads, execute them, and check their statuses
     if (RPi):
         setup_phases()
@@ -36,15 +32,7 @@ def setup_phases():
     # bind the 7-segment display to the LCD GUI so that it can be paused/unpaused from the GUI
     gui.setTimer(timer)
     # setup the keypad thread
-    # build Wordle grid in LCD
-    gui.setupWordleGrid()
-
-# pick a random 5-letter word
-    word_list = ["APPLE", "BRAIN", "CHAIR", "LIGHT", "MONEY", "WATER"]
-    wordle_target = random.choice(word_list)
-
-    keypad = WordlePhase(gui, wordle_target)
-
+    keypad = Keypad(component_keypad, keypad_target)
     # setup the jumper wires thread
     wires = Wires(component_wires, wires_target)
     # setup the pushbutton thread
@@ -191,3 +179,4 @@ gui.after(100, bootup)
 
 # display the LCD GUI
 window.mainloop()
+
