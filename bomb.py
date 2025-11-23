@@ -8,6 +8,8 @@
 from bomb_configs import *
 # import the phases
 from bomb_phases import *
+import random
+
 
 ###########
 # functions
@@ -17,7 +19,8 @@ def bootup(n=0):
     gui._lscroll["text"] = boot_text.replace("\x00", "")
     # configure the remaining GUI widgets
     gui.setup()
-    gui.setupWordleGrid()
+    setup_phases()
+    check_phases()
     # setup the phase threads, execute them, and check their statuses
     if (RPi):
         setup_phases()
