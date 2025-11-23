@@ -17,6 +17,7 @@ def bootup(n=0):
     gui._lscroll["text"] = boot_text.replace("\x00", "")
     # configure the remaining GUI widgets
     gui.setup()
+    gui.setupWordleGrid()
     # setup the phase threads, execute them, and check their statuses
     if (RPi):
         setup_phases()
