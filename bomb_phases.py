@@ -397,6 +397,9 @@ class Lcd(Frame):
                 self.wire_indicators[i].config(bg="green4")
             else:
                 self.wire_indicators[i].config(bg="gray20")
+        
+        self.after(100, self.update_wire_indicators)
+
 
     def read_wires_pattern(self):
         if RPi:
@@ -406,28 +409,6 @@ class Lcd(Frame):
             return "".join(bits)
         else:
             return "00000"
-    def update_wire_tiles(self):
-        if self.current_minigame != "wires":
-            return
-
-    # Read physical GPIO wires
-        try:
-            raw_states = [int(pin.value) for pin in component_wires]
-        except:
-            raw_states = [0, 0, 0, 0, 0]   # fallback on laptop
-
-    # Update tile colors
-        for i in range(5):
-            if raw_states[i] == 1:
-                self.wire_tiles[i]["bg"] = "#00ff00"   # plugged → green
-            else:
-                self.wire_tiles[i]["bg"] = "black"     # unplugged → black
-
-        self.after(100, self.update_wire_tiles)
-
-    
-    # keep refreshing every 100ms
-        self.after(100, self.update_wire_indicators)
 
     def wires_submit_choice(self):
         print("DEBUG: # pressed during wires phase")
