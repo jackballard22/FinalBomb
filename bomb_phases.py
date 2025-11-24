@@ -359,6 +359,9 @@ class Lcd(Frame):
     def setButton(self, button):
         self._button = button
 
+    def setKeypad(self, keypad):
+        self._keypad = keypad
+
     # pauses the timer
     def pause(self):
         if (RPi):
@@ -471,60 +474,52 @@ class Timer(PhaseThread):
 
 # the keypad phase
 class Keypad(PhaseThread):
-    def __init__(self, component, target, name="Keypad"):
+    def __init__(self, component, target, gui, name="Keypad"):
         super().__init__(name, component, target)
         # the default value is an empty string
+        self.gui = gui
         self._value = ""
 
     # runs the thread
     def run(self):
         self._running = True
-        while (self._running):
-            # process keys when keypad key(s) are pressed
-            if (self._component.pressed_keys):
-                # debounce
-                while (self._component.pressed_keys):
-                    try:
-                        # just grab the first key pressed if more than one were pressed
-                        key = self._component.pressed_keys[0]
-                    except:
-                        key = ""
-                    sleep(0.1)
-                # If the key is ENTER (#), submit the Wordle row
-                if str(key) == "#":
-                    # call GUI's submit method safely
-                    gui.wordle_submit_row()
-                    continue
+        while self._running:
+            if self._component.pressed_keys:
+                try:
+                    key = str(self._component.pressed_keys[0])
+                except:
+                    key = ""
 
-                # log the key
-                if str(key) in gui.t9_map:
-                    # cycle through the letters
-                    letters = gui.t9_map[str(key)]
-                    idx = gui.t9_state[str(key)]
+            # wait until released (debounce)
+                while self._component.pressed_keys:
+                    sleep(0.1)
+
+            # ======= T9 LETTER KEYS (2–9) =======
+                if key in self.gui.t9_map:
+                    letters = self.gui.t9_map[key]
+                    idx = self.gui.t9_state[key]
                     letter = letters[idx]
 
-                    gui.wordle_type_letter_preview(letter)
+                # PREVIEW THE LETTER ON WORDLE TILE
+                    self.gui.wordle_type_letter_preview(letter)
 
-                    # rotate for next press
-                    gui.t9_state[str(key)] = (idx + 1) % len(letters)
+                # rotate for next press
+                    self.gui.t9_state[key] = (idx + 1) % len(letters)
 
-                    # type the letter onto the Wordle board
-                    gui.wordle_type_letter(letter)
+            # ======= CONFIRM LETTER (1) =======
+                elif key == "1":
+                    self.gui.wordle_confirm_letter()
 
-                elif str(key) == "#":
-                    gui.wordle_submit_row()
+            # ======= BACKSPACE (*) =======
+                elif key == "*":
+                    self.gui.wordle_backspace()
 
-                elif str(key) == "*":
-                    gui.wordle_backspace()
-                
-                elif str(key) == "1":
-                    # CONFIRM the current letter and move to next column
-                    gui.wordle_confirm_letter()
+            # ======= ENTER (#) =======
+                elif key == "#":
+                    self.gui.wordle_submit_row()
 
-
-                # the combination is correct -> phase defused
-                
             sleep(0.1)
+
 
     # returns the keypad combination as a string
     def __str__(self):
