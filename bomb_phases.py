@@ -381,6 +381,8 @@ class Lcd(Frame):
             )
             box.pack(pady=5)
             self.wire_indicators.append(box)
+        self.update_wire_tiles()
+
 
     # Start continuous updating
         self.update_wire_indicators()
@@ -404,6 +406,24 @@ class Lcd(Frame):
             return "".join(bits)
         else:
             return "00000"
+    def update_wire_tiles(self):
+        if self.current_minigame != "wires":
+            return
+
+    # Read physical GPIO wires
+        try:
+            raw_states = [int(pin.value) for pin in component_wires]
+        except:
+            raw_states = [0, 0, 0, 0, 0]   # fallback on laptop
+
+    # Update tile colors
+        for i in range(5):
+            if raw_states[i] == 1:
+                self.wire_tiles[i]["bg"] = "#00ff00"   # plugged → green
+            else:
+                self.wire_tiles[i]["bg"] = "black"     # unplugged → black
+
+        self.after(100, self.update_wire_tiles)
 
     
     # keep refreshing every 100ms
