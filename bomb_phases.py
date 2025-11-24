@@ -291,26 +291,23 @@ class Lcd(Frame):
         return result
     def wordle_win(self):
         # Remove Wordle frame
-        self.game_frame.destroy()
 
         # Tell bomb this phase is defused
         self._lkeypad["text"] = "Wordle Keypad phase: DEFUSED"
 
     # TODO: call the next bomb phase setup
     # example:
-    # self.start_wires_phase()
+        self.start_wires_phase()
 
     def wordle_lose(self):
     # Remove Wordle frame
-        self.game_frame.destroy()
 
         self._lkeypad["text"] = "Wordle Keypad phase: FAILED"
 
     # apply a strike
     # (example, depends on your strike system)
-    # self.addStrike()
+        self.addStrike()
 
-    # continue to next phase or trigger explosion
 
     def wordle_confirm_letter(self):
     # If the tile already has a letter, advance
@@ -325,6 +322,105 @@ class Lcd(Frame):
         if self.current_col < 5:
             self.wordle_labels[self.current_row][self.current_col]["text"] = letter
 
+    ######################################
+    # Wires Phase Initialization
+    ######################################
+
+    def start_wires_phase(self):
+        self.current_minigame = "wires"
+
+    # Hide the Wordle frame safely
+        try:
+            if hasattr(self, "game_frame") and self.game_frame:
+                self.game_frame.grid_forget()
+        except:
+            pass
+
+    # Create a simple frame
+        self.wires_frame = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00",
+            width=500,
+            height=400
+        )
+        self.wires_frame.grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="w",
+            padx=20,
+            pady=20
+        )
+        self.wires_frame.grid_propagate(False)
+
+        # Test label
+        self.wires_text = Label(
+            self.wires_frame,
+            text="Wires Phase Test Frame Loaded",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 20)
+        )
+        self.wires_text.pack(pady=20)
+
+    # ---------- Wire Indicator Squares ----------
+        self.wire_indicators = []
+        for i in range(5):
+            box = Label(
+                self.wires_frame,
+                text=f"Wire {i+1}",
+                fg="#00ff00",
+                bg="gray20",
+                width=12,
+                height=2,
+                relief="solid",
+                bd=2,
+                font=("Courier New", 14)
+            )
+            box.pack(pady=5)
+            self.wire_indicators.append(box)
+
+    # Start continuous updating
+        self.update_wire_indicators()
+        
+    def update_wire_indicators(self):
+
+        pattern = self.read_wires_pattern()  # returns "10100"
+
+        for i in range(5):
+            bit = pattern[i]
+            if bit == "1":
+                self.wire_indicators[i].config(bg="green4")
+            else:
+                self.wire_indicators[i].config(bg="gray20")
+
+    def read_wires_pattern(self):
+        if RPi:
+            bits = []
+            for pin in component_wires:
+                bits.append("1" if pin.value else "0")
+            return "".join(bits)
+        else:
+            return "00000"
+
+    
+    # keep refreshing every 100ms
+        self.after(100, self.update_wire_indicators)
+
+    def wires_submit_choice(self):
+        print("DEBUG: # pressed during wires phase")
+    
+        if hasattr(self, "wires_frame") and self.wires_frame:
+        # Update the existing label or add a new one
+            Label(
+                self.wires_frame,
+                text="DEBUG: # PRESS RECEIVED",
+                fg="#00ff00",
+                bg="black",
+                font=("Courier New", 18)
+            ).pack(pady=10)
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
@@ -490,8 +586,16 @@ class Keypad(PhaseThread):
                     self.gui.wordle_backspace()
 
             # ======= ENTER (#) =======
-                elif key == "#":
-                    self.gui.wordle_submit_row()
+                elif str(key) == "#":
+                    try:
+                        if self.gui.current_minigame == "wires":
+                            self.gui.wires_submit_choice()
+                        else:
+                            self.gui.wordle_submit_row()
+                    except Exception as e:
+                        print("Error in # handling:", e)
+                    continue
+
 
             sleep(0.1)
 
