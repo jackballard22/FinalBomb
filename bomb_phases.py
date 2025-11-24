@@ -246,31 +246,6 @@ class Lcd(Frame):
         for k in self.t9_state:
             self.t9_state[k] = 0
 
-    
-
-
-    # Build guess string
-        guess = "".join(self.wordle_labels[self.current_row][i]["text"] for i in range(5))
-
-    # Temporary target word — later we’ll link this to the bomb logic!
-        target = "APPLE"
-
-    # Evaluate guess
-        colors = self.wordle_check_row(guess, target)
-
-    # Apply colors to labels
-        for i in range(5):
-            if colors[i] == "green":
-                self.wordle_labels[self.current_row][i].config(bg="#538d4e")   # green
-            elif colors[i] == "yellow":
-                self.wordle_labels[self.current_row][i].config(bg="#b59f3b")   # yellow
-            else:
-                self.wordle_labels[self.current_row][i].config(bg="#3a3a3c")   # gray
-
-    # After coloring, move to next row
-        self.current_row += 1
-        self.current_col = 0
-
     def wordle_keypress(self, event):
         # ignore special keys
         if len(event.char) != 1:
