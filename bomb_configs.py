@@ -56,6 +56,8 @@ if (RPi):
         # pins are input and pulled down
         pin.direction = Direction.INPUT
         pin.pull = Pull.DOWN
+else:
+    component_wires = [0, 0, 0, 0, 0]
 
 # pushbutton
 # 6 pins: 4, 17, 27, 22, 3V3, 3V3

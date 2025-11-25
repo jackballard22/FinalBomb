@@ -388,6 +388,80 @@ class Lcd(Frame):
         # Start updating
         self.update_wire_indicators()
 
+    # -----------------------------------------
+# Wires Rounds System (3 rounds, increasing difficulty)
+# -----------------------------------------
+
+    def wires_start_round(self, round_index):
+        """Begin a specific wires round."""
+        self.current_round = round_index
+        self.current_attempt = 1   # player gets 2 attempts per round
+
+        # Number of correct wires for each round
+        difficulty_correct_counts = [2, 3, 4]    # Round 1 → 2 wires, Round 2 → 3 wires, Round 3 → 4 wires
+        needed = difficulty_correct_counts[round_index]
+
+        # Generate a target pattern like "10100" with EXACTLY 'needed' ones
+        import random
+        pattern_list = ["1"] * needed + ["0"] * (5 - needed)
+        random.shuffle(pattern_list)
+        self.wires_target_pattern = "".join(pattern_list)
+
+        # Debug print so we can test before we go live
+        print(f"[DEBUG] Starting Round {round_index+1}, target = {self.wires_target_pattern}")
+
+        # Update the text on screen
+        self.wires_text.config(
+            text=f"Round {round_index+1}/3\n\n"
+                f"The house whispers...\n"
+                f"\"\"\"{needed} conduits carry the hidden current...\"\"\"\n\n"
+                f"Attempt {self.current_attempt}/2"
+        )
+
+
+    def wires_handle_submit(self):
+        """Called when # is pressed to lock in the player's guess."""
+        pattern = self.read_wires_pattern()
+
+        print(f"[DEBUG] Player submitted {pattern}, target = {self.wires_target_pattern}")
+
+        # Correct!
+        if pattern == self.wires_target_pattern:
+            self.wires_round_results.append(True)
+            self.wires_text.config(text="Correct alignment!\nThe energy surges through the walls...")
+            self.after(1500, self.wires_next_round)
+            return
+
+        # Wrong — but attempt 1
+        if self.current_attempt == 1:
+            self.current_attempt = 2
+            self.wires_text.config(
+                text=f"Incorrect...\nThe current sputters.\n\n"
+                    f"Attempt {self.current_attempt}/2"
+            )
+            return
+
+        # Wrong again — fail the round
+        self.wires_round_results.append(False)
+        self.wires_text.config(text="The wires fall silent...\nThis round is lost.")
+        self.after(1500, self.wires_next_round)
+
+
+    def wires_next_round(self):
+        """Advance to next round or end the puzzle."""
+        if self.current_round == 2:  
+            # All 3 rounds complete
+            wins = sum(self.wires_round_results)
+            if wins >= 2:
+                self.wires_text.config(text="You restored power!\nThe house awakens...")
+                # TODO → call next bomb phase here
+            else:
+                self.wires_text.config(text="The power collapses...\nThe spirits grow restless.")
+                # TODO → strike or fail state
+            return
+
+        # Continue to next round
+        self.wires_start_round(self.current_round + 1)
 
     def update_wire_indicators(self):
 
@@ -649,7 +723,7 @@ class Keypad(PhaseThread):
                 elif str(key) == "#":
                     try:
                         if self.gui.current_minigame == "wires":
-                            self.gui.wires_submit_choice()
+                            self.gui.wires_handle_submit()
                         else:
                             self.gui.wordle_submit_row()
                     except Exception as e:
