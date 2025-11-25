@@ -41,6 +41,8 @@ class Lcd(Frame):
         # setup the initial "boot" GUI
         self.setupBoot()
         self.wordle_game_over = False
+        self.current_minigame = "wordle"
+
 
 
     # sets up the LCD "boot" GUI
