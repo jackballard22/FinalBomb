@@ -331,20 +331,21 @@ class Lcd(Frame):
     def start_wires_phase(self):
         self.current_minigame = "wires"
 
-        # Hide the Wordle frame safely
+        # Hide Wordle frame
         try:
             if hasattr(self, "game_frame") and self.game_frame:
                 self.game_frame.grid_forget()
         except:
             pass
 
+        # Create wires frame
         self.wires_frame = Frame(
             self,
             bg="black",
             highlightthickness=2,
             highlightbackground="#00ff00",
             width=500,
-            height=400
+            height=300
         )
         self.wires_frame.grid(
             row=6,
@@ -356,35 +357,34 @@ class Lcd(Frame):
         )
         self.wires_frame.grid_propagate(False)
 
-        # label
-        self.wires_text = Label(
+        # Test label
+        Label(
             self.wires_frame,
             text="Wires Phase Test Frame Loaded",
             fg="#00ff00",
             bg="black",
             font=("Courier New", 20)
-        )
-        self.wires_text.pack(pady=20)
+        ).pack(pady=20)
 
-        # indicators
-        self.wire_indicators = []
+        # ======================================================
+        # 🔥 STEP 1 — Draw the five wire indicator boxes
+        # ======================================================
+        self.wire_boxes = []
         for i in range(5):
             box = Label(
                 self.wires_frame,
-                text=f"Wire {i+1}",
-                fg="#00ff00",
+                width=8,
+                height=4,
                 bg="gray20",
-                width=12,
-                height=2,
+                fg="#00ff00",
                 relief="solid",
                 bd=2,
-                font=("Courier New", 14)
+                font=("Courier New", 14),
+                text=f"W{i+1}"
             )
-            box.pack(pady=5)
-            self.wire_indicators.append(box)
+            box.pack(side="left", padx=10, pady=10)
+            self.wire_boxes.append(box)
 
-        # Start updating
-        self.update_wire_indicators()
 
     def update_wire_indicators(self):
 
@@ -424,6 +424,60 @@ class Lcd(Frame):
                 bg="black",
                 font=("Courier New", 18)
             ).pack(pady=10)
+
+
+    def wires_start_round(self, round_number):
+
+        # how many wires must be plugged?
+        required = [2, 3, 4][round_number]
+
+        # ---- Generate target pattern ----
+        import random
+        positions = random.sample(range(5), required)
+        pattern = ["0"] * 5
+        for p in positions:
+            pattern[p] = "1"
+        self.wires_target_pattern = "".join(pattern)
+
+        # save current round
+        self.wires_current_round = round_number
+
+        # ---- Haunted messages ----
+        ghost_messages = [
+            (
+                "A dim glow flickers in the walls...\n"
+                "You hear a whisper rise from somewhere deep inside the house,\n"
+                "\"Two threads of life remain... fragile... waiting to be awakened.\"\n\n"
+                "The air hums softly. A faint static dances across the wires.\n"
+                "Only two conduits still resonate with the ghostly current.\n"
+                "Restore their link, or the house will remain in darkness."
+            ),
+            (
+                "The floorboards groan as the house shifts.\n"
+                "An unseen presence coils around the breaker box, whispering,\n"
+                "\"Three channels... three paths must carry the current... or all will collapse.\"\n\n"
+                "The walls throb with unstable energy.\n"
+                "Three wires pulse faintly, calling out for connection.\n"
+                "Choose carefully — the spirits grow restless."
+            ),
+            (
+                "A violent shudder rips through the house.\n"
+                "The lights flare, then die, as a guttural whisper echoes:\n"
+                "\"Too much power... too much rage... only four conduits can contain me...\"\n\n"
+                "The breaker box vibrates with chaotic force.\n"
+                "Only four wires can stabilize the surge of haunted energy.\n"
+                "One mistake... and the entire house tears itself apart."
+            )
+        ]
+
+        # ---- Update the GUI text ----
+        if hasattr(self, "wires_text"):
+            self.wires_text.config(text=f"Round {round_number+1}/3\n\n{ghost_messages[round_number]}")
+        else:
+            print("DEBUG: wires_text not found")
+
+        print(f"DEBUG: Target pattern for round {round_number+1} = {self.wires_target_pattern}")
+
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
