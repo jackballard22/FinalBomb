@@ -440,6 +440,8 @@ class Lcd(Frame):
                     f"Attempt {self.current_attempt}/2"
             )
             return
+        if round_number == 2:   # round 0, 1, 2 = 3 rounds
+            self.finish_wires_phase()
 
         # Wrong again — fail the round
         self.wires_round_results.append(False)
@@ -488,20 +490,84 @@ class Lcd(Frame):
             return "00000"
 
 
+    def finish_wires_phase(self):
+        total_successes = sum(self.wires_round_results)
 
-    def wires_submit_choice(self):
-        print("DEBUG: # pressed during wires phase")
-    
-        if hasattr(self, "wires_frame") and self.wires_frame:
-        # Update the existing label or add a new one
+        # Clear the wires frame UI
+        try:
+            self.wires_frame.grid_forget()
+        except:
+            pass
+
+        # Show summary screen
+        summary = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00"
+        )
+        summary.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
+
+        # Title
+        Label(
+            summary,
+            text="Wires Phase Complete",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 22, "bold")
+        ).pack(pady=10)
+
+        # Detailed results
+        Label(
+            summary,
+            text=f"Correct rounds: {total_successes}/3",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 18)
+        ).pack(pady=10)
+
+        # Determine pass/fail
+        if total_successes >= 2:
             Label(
-                self.wires_frame,
-                text="DEBUG: # PRESS RECEIVED",
-                fg="#00ff00",
+                summary,
+                text="Result: DEFUSED",
+                fg="green",
                 bg="black",
-                font=("Courier New", 18)
+                font=("Courier New", 20, "bold")
             ).pack(pady=10)
 
+            # ➜ START NEXT PHASE HERE
+            self.after(2000, self.start_button_phase)
+
+        else:
+            Label(
+                summary,
+                text="Result: FAILED",
+                fg="red",
+                bg="black",
+                font=("Courier New", 20, "bold")
+            ).pack(pady=10)
+
+            # strike the bomb
+            global strikes_left
+            strikes_left -= 1
+
+            # ➜ Continue to button phase anyway
+            self.after(2000, self.start_button_phase)
+
+    def start_button_phase(self):
+        print("[DEBUG] Starting button phase (placeholder)")
+        # TEMPORARY placeholder frame
+        frame = Frame(self, bg="black")
+        frame.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
+
+        Label(
+            frame,
+            text="Button Phase Starting...\n(placeholder screen)",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 22)
+        ).pack(pady=30)
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
