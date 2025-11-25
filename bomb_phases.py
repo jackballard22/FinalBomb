@@ -402,7 +402,7 @@ class Lcd(Frame):
         if RPi:
             bits = []
             for pin in self.component_wires:
-                plugged = (pin.value == False)
+                plugged = (pin.value == True)
                 bits.append("1" if plugged else "0")
             return "".join(bits)
         else:
