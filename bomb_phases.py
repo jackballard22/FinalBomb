@@ -451,19 +451,17 @@ class Lcd(Frame):
 
     def wires_next_round(self):
         """Advance to next round or end the puzzle."""
-        if self.current_round == 2:  
+        if self.current_round == 2:
             # All 3 rounds complete
             wins = sum(self.wires_round_results)
-            if wins >= 2:
-                self.wires_text.config(text="You restored power!\nThe house awakens...")
-                # TODO → call next bomb phase here
-            else:
-                self.wires_text.config(text="The power collapses...\nThe spirits grow restless.")
-                # TODO → strike or fail state
+
+            # Use finish_wires_phase() which hides UI AND moves to next phase
+            self.finish_wires_phase()
             return
 
         # Continue to next round
         self.wires_start_round(self.current_round + 1)
+
 
     def update_wire_indicators(self):
 
@@ -500,17 +498,17 @@ class Lcd(Frame):
             pass
 
         # Show summary screen
-        summary = Frame(
+        self.wires_summary = Frame(
             self,
             bg="black",
             highlightthickness=2,
             highlightbackground="#00ff00"
         )
-        summary.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
+        self.wires_summary.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
 
         # Title
         Label(
-            summary,
+            self.wires_summary,
             text="Wires Phase Complete",
             fg="#00ff00",
             bg="black",
@@ -519,7 +517,7 @@ class Lcd(Frame):
 
         # Detailed results
         Label(
-            summary,
+            self.wires_summary,
             text=f"Correct rounds: {total_successes}/3",
             fg="#00ff00",
             bg="black",
@@ -529,7 +527,7 @@ class Lcd(Frame):
         # Determine pass/fail
         if total_successes >= 2:
             Label(
-                summary,
+                self.wires_summary,
                 text="Result: DEFUSED",
                 fg="green",
                 bg="black",
@@ -541,7 +539,7 @@ class Lcd(Frame):
 
         else:
             Label(
-                summary,
+                self.wires_summary,
                 text="Result: FAILED",
                 fg="red",
                 bg="black",
@@ -562,6 +560,12 @@ class Lcd(Frame):
         try:
             if hasattr(self, "wires_frame") and self.wires_frame:
                 self.wires_frame.grid_forget()
+        except:
+            pass
+
+        try:
+            if hasattr(self, "wires_summary") and self.wires_summary:
+                self.wires_summary.grid_forget()
         except:
             pass
 
