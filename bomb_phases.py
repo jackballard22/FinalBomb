@@ -632,9 +632,48 @@ class Lcd(Frame):
         self.ritual_attempts = 2
         self.ritual_sequence = []
         self.ritual_user_input = []
+        self.after(800, self.ritual_begin_round)
+
+    def ritual_begin_round(self):
+        """Begin a new ritual round with a generated sequence."""
+
+        # Increase sequence length each round
+        lengths = [2, 3, 4]   # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
+        seq_length = lengths[self.ritual_round]
+
+        colors = ["RED", "GREEN", "BLUE"]
+        self.ritual_sequence = [choice(colors) for _ in range(seq_length)]
+
+        self.ritual_text.config(
+            text=f"Ritual Round {self.ritual_round + 1}\nFocus on the sigils..."
+        )
+
+        # Reset user input
+        self.ritual_user_input = []
+        self.ritual_input_label.config(text="Awaiting your input...")
+
+        # Begin sequence display
+        self.after(1000, lambda: self.ritual_display_sequence(0))
+
 
         # Placeholder until next step
         print("[DEBUG] Ritual phase frame loaded.")
+
+    def ritual_display_sequence(self, index):
+        """Shows color sequence one at a time."""
+        if index >= len(self.ritual_sequence):
+            # Done showing sequence
+            self.ritual_sequence_label.config(text="Now repeat the sigils.")
+            return
+
+        color = self.ritual_sequence[index]
+
+        # Display the color text on screen
+        self.ritual_sequence_label.config(text=color)
+
+        # Flash for 700ms then blank
+        self.after(700, lambda: self.ritual_sequence_label.config(text=""))
+        self.after(1000, lambda: self.ritual_display_sequence(index + 1))
 
 
     # lets us pause/unpause the timer (7-segment display)
