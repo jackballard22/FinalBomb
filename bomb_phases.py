@@ -329,14 +329,13 @@ class Lcd(Frame):
     def start_wires_phase(self):
         self.current_minigame = "wires"
 
-    # Hide the Wordle frame safely
+        # Hide the Wordle frame safely
         try:
             if hasattr(self, "game_frame") and self.game_frame:
                 self.game_frame.grid_forget()
         except:
             pass
 
-    # Create a simple frame
         self.wires_frame = Frame(
             self,
             bg="black",
@@ -355,7 +354,7 @@ class Lcd(Frame):
         )
         self.wires_frame.grid_propagate(False)
 
-        # Test label
+        # label
         self.wires_text = Label(
             self.wires_frame,
             text="Wires Phase Test Frame Loaded",
@@ -365,7 +364,7 @@ class Lcd(Frame):
         )
         self.wires_text.pack(pady=20)
 
-    # ---------- Wire Indicator Squares ----------
+        # indicators
         self.wire_indicators = []
         for i in range(5):
             box = Label(
@@ -381,12 +380,10 @@ class Lcd(Frame):
             )
             box.pack(pady=5)
             self.wire_indicators.append(box)
-        self.update_wire_tiles()
 
-
-    # Start continuous updating
+        # Start updating
         self.update_wire_indicators()
-        
+
     def update_wire_indicators(self):
 
         pattern = self.read_wires_pattern()  # returns "10100"
@@ -404,11 +401,14 @@ class Lcd(Frame):
     def read_wires_pattern(self):
         if RPi:
             bits = []
-            for pin in component_wires:
-                bits.append("1" if pin.value else "0")
+            for pin in self.component_wires:
+                plugged = (pin.value == False)
+                bits.append("1" if plugged else "0")
             return "".join(bits)
         else:
             return "00000"
+
+
 
     def wires_submit_choice(self):
         print("DEBUG: # pressed during wires phase")
