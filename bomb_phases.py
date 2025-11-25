@@ -556,18 +556,82 @@ class Lcd(Frame):
             self.after(2000, self.start_button_phase)
 
     def start_button_phase(self):
-        print("[DEBUG] Starting button phase (placeholder)")
-        # TEMPORARY placeholder frame
-        frame = Frame(self, bg="black")
-        frame.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
+        self.current_minigame = "button_ritual"
 
+        # Hide wires frame (if it exists)
+        try:
+            if hasattr(self, "wires_frame") and self.wires_frame:
+                self.wires_frame.grid_forget()
+        except:
+            pass
+
+        # Create ritual frame
+        self.ritual_frame = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00",
+            width=500,
+            height=400
+        )
+        self.ritual_frame.grid(
+            row=6,
+            column=0,
+            columnspan=3,
+            sticky="w",
+            padx=20,
+            pady=20
+        )
+        self.ritual_frame.grid_propagate(False)
+
+        # Title text
         Label(
-            frame,
-            text="Button Phase Starting...\n(placeholder screen)",
+            self.ritual_frame,
+            text="RITUAL OF THE SIGILS",
             fg="#00ff00",
             bg="black",
-            font=("Courier New", 22)
-        ).pack(pady=30)
+            font=("Courier New", 24, "bold")
+        ).pack(pady=10)
+
+        # Story text
+        self.ritual_text = Label(
+            self.ritual_frame,
+            text="The sigils flicker with spectral energy...\nWatch closely.",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 16)
+        )
+        self.ritual_text.pack(pady=5)
+
+        # Space for the color sequence display
+        self.ritual_sequence_label = Label(
+            self.ritual_frame,
+            text="(sequence will appear here)",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 20, "bold")
+        )
+        self.ritual_sequence_label.pack(pady=20)
+
+        # Space for user input feedback
+        self.ritual_input_label = Label(
+            self.ritual_frame,
+            text="Awaiting your input...",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 18)
+        )
+        self.ritual_input_label.pack(pady=10)
+
+        # Initialize internal variables for the ritual
+        self.ritual_round = 0
+        self.ritual_attempts = 2
+        self.ritual_sequence = []
+        self.ritual_user_input = []
+
+        # Placeholder until next step
+        print("[DEBUG] Ritual phase frame loaded.")
+
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
