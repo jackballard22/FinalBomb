@@ -331,21 +331,20 @@ class Lcd(Frame):
     def start_wires_phase(self):
         self.current_minigame = "wires"
 
-        # Hide Wordle frame
+        # Hide the Wordle frame safely
         try:
             if hasattr(self, "game_frame") and self.game_frame:
                 self.game_frame.grid_forget()
         except:
             pass
 
-        # Create wires frame
         self.wires_frame = Frame(
             self,
             bg="black",
             highlightthickness=2,
             highlightbackground="#00ff00",
             width=500,
-            height=300
+            height=400
         )
         self.wires_frame.grid(
             row=6,
@@ -357,33 +356,37 @@ class Lcd(Frame):
         )
         self.wires_frame.grid_propagate(False)
 
-        # Test label
-        Label(
+        # label
+        self.wires_text = Label(
             self.wires_frame,
             text="Wires Phase Test Frame Loaded",
             fg="#00ff00",
             bg="black",
             font=("Courier New", 20)
-        ).pack(pady=20)
+        )
+        self.wires_text.pack(pady=20)
 
-        # ======================================================
-        # 🔥 STEP 1 — Draw the five wire indicator boxes
-        # ======================================================
-        self.wire_boxes = []
+        # indicators
+        self.wire_indicators = []
         for i in range(5):
             box = Label(
                 self.wires_frame,
-                width=8,
-                height=4,
-                bg="gray20",
+                text=f"Wire {i+1}",
                 fg="#00ff00",
+                bg="gray20",
+                width=12,
+                height=2,
                 relief="solid",
                 bd=2,
-                font=("Courier New", 14),
-                text=f"W{i+1}"
+                font=("Courier New", 14)
             )
-            box.pack(side="left", padx=10, pady=10)
-            self.wire_boxes.append(box)
+            box.pack(pady=5)
+            self.wire_indicators.append(box)
+
+        self.wires_round_results = []
+        self.wires_start_round(0)
+        # Start updating
+        self.update_wire_indicators()
 
 
     def update_wire_indicators(self):
