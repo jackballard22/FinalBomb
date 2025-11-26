@@ -16,6 +16,9 @@ import sys
 
 import random
 
+#Jaeden : I got help creating the Wordle and Wires phase logic from ChatGPT, but I made sure to understand the code and comment it well.
+
+#Random words for the Wordle to choose from
 WORDLE_WORDS = [
     "SPOOK", "GHOST", "GRAVE", "SKULL", 
     "BLOOD", "CURSE", "CREEP", "SCARE", 
@@ -24,10 +27,6 @@ WORDLE_WORDS = [
 ]
 
 
-
-#########
-# classes
-#########
 # the LCD display GUI
 class Lcd(Frame):
     def __init__(self, window):
@@ -58,6 +57,8 @@ class Lcd(Frame):
 
     # sets up the LCD GUI
     def setup(self):
+
+        #Mapping of T9 keys to letters
         self.t9_map = {
             "2": "ABC",
             "3": "DEF",
@@ -98,49 +99,55 @@ class Lcd(Frame):
             self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
             self._bquit.grid(row=6, column=2, pady=40)
 
+
+        # -----------------------------------------
+        # Beginning of Wordle Phase Methods
+
+
+        #Choose a random target word for Wordle
         self.wordle_target = random.choice(WORDLE_WORDS)
+        # Puts the answer for the Wordle in the terminal for easier testing
         print("DEBUG spooky Wordle answer =", self.wordle_target)
 
-        # allow Enter key on real keyboard
+        #Allowing keyboard input for testing purposes
+        # Enter key to submit row
         self.bind_all("<Return>", lambda event: self.wordle_submit_row())
         # Letter typing (A–Z)
         self.bind_all("<Key>", self.wordle_keypress)
 
 
-        # =====================================================
-        # MINIGAME FRAME (bottom-left)
-        # =====================================================
-
+        # Create the Wordle frame
         self.game_frame = Frame(
             self,
             bg="gray20",
-            width=470,      # adjust size if needed
-            height=720,     # adjust size if needed
+            width=470,   
+            height=720,     
             highlightthickness=2,
             highlightbackground="#00ff00"  # green border to see it clearly
         )
 
-        # Put it at the bottom-left
+        # Position the frame in the grid
         self.game_frame.grid(
             row=6,
             column=0,
-            columnspan=2,   # gives you more horizontal room
+            columnspan=2,  
             sticky="nw",
             padx=20,
             pady=20
         )
 
-        # Prevent frame from shrinking to fit contents (important)
+        # Prevent frame from resizing to fit contents
         self.game_frame.grid_propagate(False)
         MAX_ATTEMPTS = 6      # 6 rows
         WORD_LENGTH = 5       # 5 columns
         FONT = ("Courier New", 24, "bold")
 
+        # Define colors
         COLORS = {
             "empty": "black"
         }
 
-        # store a reference so later we can update tiles
+        # Create the grid of labels for Wordle
         self.wordle_labels = []
 
         for row in range(MAX_ATTEMPTS):
@@ -161,65 +168,67 @@ class Lcd(Frame):
                 row_labels.append(lbl)
 
             self.wordle_labels.append(row_labels)
-        
-        # Wordle typing state
+
+        # Current row and column for typing
         self.current_row = 0
         self.current_col = 0
 
 
 
-
+    # Wordle Phase Methods
     def wordle_set_letter(self, row, col, letter):
         self.wordle_labels[row][col]["text"] = letter.upper()
 
+    # Type a letter into the current position
     def wordle_type_letter(self, letter):
         
-        # Only allow letters A–Z (optional safety check)
+        # Only allow letters A–Z 
         if not letter.isalpha() or len(letter) != 1:
             return
         
-        # If row is full, do nothing
+        # Check bounds
         if self.current_row >= 6:
             return
-        
-        if self.current_col >= 5:  # MAX_ATTEMPTS
+        # Max 5 letters per row
+        if self.current_col >= 5: 
             return
 
         
         # Place the letter
         self.wordle_labels[self.current_row][self.current_col]["text"] = letter.upper()
         self.current_col += 1
-        
-        # If the row is now full, advance to the next row
-        #if self.current_col == 5:
-            #self.current_row += 1
-            #self.current_col = 0
+
+        # Reset T9 rotation so next letter starts fresh
         for k in self.t9_state:
             self.t9_state[k] = 0
 
-
+    # Test a full word (for testing purposes)
     def wordle_test_word(self, word):
         for letter in word:
             self.wordle_type_letter(letter)
 
+    # Backspace method
     def wordle_backspace(self):
 
         if self.current_col > 0:
             self.current_col -= 1
             self.wordle_labels[self.current_row][self.current_col]["text"] = ""
 
+    # Submit the current row for checking
     def wordle_submit_row(self):
         if self.wordle_game_over:
             return
 
-    # Must have exactly 5 letters
+    # Read the current row's text
         row_text = "".join(self.wordle_labels[self.current_row][c]["text"] for c in range(5))
         if len(row_text) < 5:
             return
 
+        # Evaluate the guess
         guess = row_text.upper()
         target = self.wordle_target.upper()
 
+        # Color the tiles based on correctness
         for col in range(5):
             letter = guess[col]
 
@@ -230,24 +239,25 @@ class Lcd(Frame):
             else:
                 self.wordle_labels[self.current_row][col]["bg"] = "#3a3a3c"  
 
-        # Check for win
+        # Check if the guess is correct
         if guess == target:
             self.wordle_game_over = True
-            self.after(700, self.wordle_win)  # delay for color to show
+            self.after(700, self.wordle_win)  
             return
 
-        #If not a win check if its the last row
+        # Check if out of attempts
         if self.current_row == 5:
             self.wordle_game_over = True
             self.after(700, self.wordle_lose)
             return
 
-        # Otherwise go to next row
+        # Advance to next row
         self.current_row += 1
         self.current_col = 0
         for k in self.t9_state:
             self.t9_state[k] = 0
 
+    # Handle keypress events for Wordle
     def wordle_keypress(self, event):
         # ignore special keys
         if len(event.char) != 1:
@@ -255,23 +265,16 @@ class Lcd(Frame):
 
         char = event.char.upper()
 
-        # A–Z letters → type them
+        # Letter keys A–Z
         if "A" <= char <= "Z":
             self.wordle_type_letter(char)
 
-    # Backspace → delete
+        # Backspace key
         elif event.keysym == "BackSpace":
             self.wordle_backspace()
 
-    # Enter key already handled separately
+    # Evaluate a guess against the target word
     def wordle_check_row(self, guess, target):
-        """
-        Returns a list of 5 color results for this guess.
-        'green'  = correct letter, correct position
-        'yellow' = correct letter, wrong position
-        'gray'   = not in the word at all
-        """
-
         result = ["gray"] * 5
         target_list = list(target)
 
@@ -291,43 +294,46 @@ class Lcd(Frame):
                 target_list[target_list.index(guess[i])] = None
 
         return result
+    
+    # Wordle win handling
     def wordle_win(self):
-        # Remove Wordle frame
-
+  
         # Tell bomb this phase is defused
         self._lkeypad["text"] = "Wordle Keypad phase: DEFUSED"
 
-    # TODO: call the next bomb phase setup
-    # example:
         self.start_wires_phase()
 
     def wordle_lose(self):
-    # Remove Wordle frame
 
+        # Tell bomb this phase is failed
         self._lkeypad["text"] = "Wordle Keypad phase: FAILED"
 
-    # apply a strike
-    # (example, depends on your strike system)
+        # If WOrdle phase is failed, add a strike
         self.addStrike()
 
-
+    # Confirm letter method for T9 input
     def wordle_confirm_letter(self):
-    # If the tile already has a letter, advance
+        # Only confirm if there's a letter to confirm
         if self.current_col < 5 and self.wordle_labels[self.current_row][self.current_col]["text"] != "":
             self.current_col += 1
     
-    # Reset T9 rotation so next letter starts fresh
+        # Reset T9 rotation so next letter starts fresh
         for k in self.t9_state:
             self.t9_state[k] = 0
 
+    # Preview letter method for T9 input
     def wordle_type_letter_preview(self, letter):
         if self.current_col < 5:
             self.wordle_labels[self.current_row][self.current_col]["text"] = letter
 
-    ######################################
-    # Wires Phase Initialization
-    ######################################
 
+    #End of Wordle Phase Methods
+
+    # -----------------------------------------
+
+    #Beginning of Wires Phase Methods
+    
+    # Start the Wires Phase
     def start_wires_phase(self):
         self.current_minigame = "wires"
 
@@ -338,6 +344,7 @@ class Lcd(Frame):
         except:
             pass
 
+        # Create the wires frame    
         self.wires_frame = Frame(
             self,
             bg="black",
@@ -346,6 +353,7 @@ class Lcd(Frame):
             width=500,
             height=400
         )
+        # Position the frame in the grid
         self.wires_frame.grid(
             row=6,
             column=0,
@@ -354,9 +362,10 @@ class Lcd(Frame):
             padx=20,
             pady=20
         )
+        # Prevent frame from resizing to fit contents
         self.wires_frame.grid_propagate(False)
 
-        # label
+        # Title text
         self.wires_text = Label(
             self.wires_frame,
             text="Wires Phase Test Frame Loaded",
@@ -364,9 +373,10 @@ class Lcd(Frame):
             bg="black",
             font=("Courier New", 20)
         )
+        #Text position
         self.wires_text.pack(pady=20)
 
-        # indicators
+        # Indicators for the 5 wires
         self.wire_indicators = []
         for i in range(5):
             box = Label(
@@ -383,22 +393,25 @@ class Lcd(Frame):
             box.pack(pady=5)
             self.wire_indicators.append(box)
 
+        # Internal variables
         self.wires_round_results = []
+        # Start round 1
         self.wires_start_round(0)
         # Start updating
         self.update_wire_indicators()
 
-    # -----------------------------------------
-# Wires Rounds System (3 rounds, increasing difficulty)
-# -----------------------------------------
-
+    # Begin a specific wires round
     def wires_start_round(self, round_index):
-        """Begin a specific wires round."""
+        # Initialize round variables
         self.current_round = round_index
-        self.current_attempt = 1   # player gets 2 attempts per round
 
-        # Number of correct wires for each round
-        difficulty_correct_counts = [2, 3, 4]    # Round 1 → 2 wires, Round 2 → 3 wires, Round 3 → 4 wires
+        #Number of attempts per round
+        self.current_attempt = 1  
+
+        # Number of correct wires for each round, round 1 = 2 wires, Round 2 = 3 wires, Round 3 = 4 wires
+        difficulty_correct_counts = [2, 3, 4]
+
+        #Number of correct wires needed this round 
         needed = difficulty_correct_counts[round_index]
 
         # Generate a target pattern like "10100" with EXACTLY 'needed' ones
@@ -407,7 +420,7 @@ class Lcd(Frame):
         random.shuffle(pattern_list)
         self.wires_target_pattern = "".join(pattern_list)
 
-        # Debug print so we can test before we go live
+        # Puts the answer for the Wires in the terminal for easier testing
         print(f"[DEBUG] Starting Round {round_index+1}, target = {self.wires_target_pattern}")
 
         # Update the text on screen
@@ -418,21 +431,21 @@ class Lcd(Frame):
                 f"Attempt {self.current_attempt}/2"
         )
 
-
+    # Handle submission of wires pattern
     def wires_handle_submit(self):
-        """Called when # is pressed to lock in the player's guess."""
         pattern = self.read_wires_pattern()
 
+        # Puts the user submission for the Wires in the terminal and compares it to the target for easier testing
         print(f"[DEBUG] Player submitted {pattern}, target = {self.wires_target_pattern}")
 
-        # Correct!
+        # Check correctness
         if pattern == self.wires_target_pattern:
             self.wires_round_results.append(True)
             self.wires_text.config(text="Correct alignment!\nThe energy surges through the walls...")
             self.after(1500, self.wires_next_round)
             return
 
-        # Wrong — but attempt 1
+        # Incorrect submission, but user gets another try
         if self.current_attempt == 1:
             self.current_attempt = 2
             self.wires_text.config(
@@ -440,17 +453,17 @@ class Lcd(Frame):
                     f"Attempt {self.current_attempt}/2"
             )
             return
+        # Second incorrect submission, check if this was the last round
         if round_number == 2:   # round 0, 1, 2 = 3 rounds
             self.finish_wires_phase()
 
-        # Wrong again — fail the round
+        # Checks if the user failed this round
         self.wires_round_results.append(False)
         self.wires_text.config(text="The wires fall silent...\nThis round is lost.")
         self.after(1500, self.wires_next_round)
 
-
+    # Advance to next round or end the wires phase
     def wires_next_round(self):
-        """Advance to next round or end the puzzle."""
         if self.current_round == 2:
             # All 3 rounds complete
             wins = sum(self.wires_round_results)
@@ -462,21 +475,23 @@ class Lcd(Frame):
         # Continue to next round
         self.wires_start_round(self.current_round + 1)
 
-
+    # Update the wire indicators based on current state
     def update_wire_indicators(self):
 
-        pattern = self.read_wires_pattern()  # returns "10100"
+        # Read the current wires pattern
+        pattern = self.read_wires_pattern()  
 
+        # Update the indicators
         for i in range(5):
             bit = pattern[i]
             if bit == "1":
                 self.wire_indicators[i].config(bg="green4")
             else:
                 self.wire_indicators[i].config(bg="gray20")
-        
+        #Update the gui wire indicators every 100ms
         self.after(100, self.update_wire_indicators)
 
-
+    # Read the current wires pattern from GPIO pins
     def read_wires_pattern(self):
         if RPi:
             bits = []
@@ -487,7 +502,7 @@ class Lcd(Frame):
         else:
             return "00000"
 
-
+    # Finish the wires phase and show summary
     def finish_wires_phase(self):
         total_successes = sum(self.wires_round_results)
 
@@ -534,10 +549,11 @@ class Lcd(Frame):
                 font=("Courier New", 20, "bold")
             ).pack(pady=10)
 
-            # ➜ START NEXT PHASE HERE
+            # Proceed to button phase after delay
             self.after(2000, self.start_button_phase)
 
         else:
+            #If the user failed the wires phase
             Label(
                 self.wires_summary,
                 text="Result: FAILED",
@@ -546,13 +562,18 @@ class Lcd(Frame):
                 font=("Courier New", 20, "bold")
             ).pack(pady=10)
 
-            # strike the bomb
+            # Add a strike for failing the wires phase
             global strikes_left
             strikes_left -= 1
 
-            # ➜ Continue to button phase anyway
+            #Start button phase after delay
             self.after(2000, self.start_button_phase)
 
+    #End of Wires Phase Methods
+
+    # -----------------------------------------
+
+    #Beginning of Button Phase Methods
     def start_button_phase(self):
         self.current_minigame = "button_ritual"
 
