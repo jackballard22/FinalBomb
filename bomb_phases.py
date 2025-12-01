@@ -57,6 +57,8 @@ class Lcd(Frame):
 
     # sets up the LCD GUI
     def setup(self):
+        # destroy the boot text widget
+        self._lscroll.destroy()
 
         #Mapping of T9 keys to letters
         self.t9_map = {
@@ -73,31 +75,38 @@ class Lcd(Frame):
         self.t9_state = {key: 0 for key in self.t9_map}   # rotation counters
 
 
-        # the timer
+        #Timer Label
         self._ltimer = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Time left: ")
-        self._ltimer.grid(row=1, column=0, columnspan=3, sticky=W)
-        # the keypad passphrase
-        self._lkeypad = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wordle Keypad phase: ")
-        self._lkeypad.grid(row=2, column=0, columnspan=3, sticky=W)
-        # the jumper wires status
-        self._lwires = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wires phase: ")
-        self._lwires.grid(row=3, column=0, columnspan=3, sticky=W)
-        # the pushbutton status
+        self._ltimer.grid(row=0, column=0, columnspan=3, sticky="w")
+
+
+        #Wordle Phase Status Label
+        self._lkeypad = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wordle Keypad Phase: ")
+        self._lkeypad.grid(row=1, column=0, columnspan=3, sticky="w")
+
+        #Wires Phase Status Label
+        self._lwires = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Wire Combination Phase: ")
+        self._lwires.grid(row=1, column=1, columnspan=3, sticky="e", padx=150)
+
+        #Button Phase Status Label
         self._lbutton = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Button phase: ")
-        self._lbutton.grid(row=4, column=0, columnspan=3, sticky=W)
-        # the toggle switches status
+        self._lbutton.grid(row=2, column=0, columnspan=3, sticky="w")
+
+        #Toggles Phase Status Label
         self._ltoggles = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Toggles phase: ")
-        self._ltoggles.grid(row=5, column=0, columnspan=2, sticky=W)
+        self._ltoggles.grid(row=2, column=1, columnspan=3, sticky="e", padx=150)
         # the strikes left
         self._lstrikes = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Strikes left: ")
-        self._lstrikes.grid(row=5, column=2, sticky=W)
-        if (SHOW_BUTTONS):
+        self._lstrikes.grid(row=0, column=2, sticky="e", padx=150)
+
+        
+        #if (SHOW_BUTTONS):
             # the pause button (pauses the timer)
-            self._bpause = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Pause", anchor=CENTER, command=self.pause)
-            self._bpause.grid(row=6, column=0, pady=40)
+            #self._bpause = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Pause", anchor=CENTER, command=self.pause)
+            #self._bpause.grid(row=6, column=0, pady=40)
             # the quit button
-            self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
-            self._bquit.grid(row=6, column=2, pady=40)
+            #self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
+            #self._bquit.grid(row=6, column=2, pady=40)
 
 
         # -----------------------------------------
@@ -120,19 +129,19 @@ class Lcd(Frame):
         self.game_frame = Frame(
             self,
             bg="gray20",
-            width=470,   
-            height=720,     
+            width=378,   
+            height=330,     
             highlightthickness=2,
             highlightbackground="#00ff00"  # green border to see it clearly
         )
 
         # Position the frame in the grid
         self.game_frame.grid(
-            row=6,
+            row=3,
             column=0,
-            columnspan=2,  
-            sticky="nw",
-            padx=20,
+            columnspan=3,  
+            sticky="n",
+            padx=0,
             pady=20
         )
 
@@ -156,8 +165,8 @@ class Lcd(Frame):
                 lbl = Label(
                     self.game_frame,
                     text="",
-                    width=4,
-                    height=2,
+                    width=3,
+                    height=1,
                     font=FONT,
                     relief="solid",
                     bg=COLORS["empty"],
@@ -355,11 +364,11 @@ class Lcd(Frame):
         )
         # Position the frame in the grid
         self.wires_frame.grid(
-            row=6,
+            row=3,
             column=0,
             columnspan=3,
-            sticky="w",
-            padx=20,
+            sticky="n",
+            padx=0,
             pady=20
         )
         # Prevent frame from resizing to fit contents
@@ -519,7 +528,7 @@ class Lcd(Frame):
             highlightthickness=2,
             highlightbackground="#00ff00"
         )
-        self.wires_summary.grid(row=6, column=0, columnspan=3, sticky="w", padx=20, pady=20)
+        self.wires_summary.grid(row=6, column=1, columnspan=3, sticky="w", padx=20, pady=20)
 
         # Title
         Label(
@@ -600,11 +609,11 @@ class Lcd(Frame):
             height=400
         )
         self.ritual_frame.grid(
-            row=6,
+            row=3,
             column=0,
             columnspan=3,
-            sticky="w",
-            padx=20,
+            sticky="n",
+            padx=0,
             pady=20
         )
         self.ritual_frame.grid_propagate(False)
@@ -733,7 +742,7 @@ class Lcd(Frame):
         self._bretry.grid(row=1, column=0, pady=40)
         # the quit button
         self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
-        self._bquit.grid(row=1, column=2, pady=40)
+        self._bquit.grid(row=1, column=1, pady=40)
 
     # re-attempts the bomb (after an explosion or a successful defusion)
     def retry(self):
