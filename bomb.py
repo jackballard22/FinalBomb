@@ -170,11 +170,8 @@ def turn_off():
 # initialize the LCD GUI
 window = Tk()
 gui = Lcd(window)
-# initialize the LCD GUI
-window = Tk()
-gui = Lcd(window)
 
-# 🔥 ADD THIS (critical)
+
 if RPi:
     gui.component_wires = component_wires
     gui.component_keypad = component_keypad

@@ -15,6 +15,8 @@ import os
 import sys
 
 import random
+from PIL import Image, ImageTk
+
 
 #Jaeden : I got help creating the Wordle and Wires phase logic from ChatGPT, but I made sure to understand the code and comment it well.
 
@@ -31,8 +33,33 @@ WORDLE_WORDS = [
 class Lcd(Frame):
     def __init__(self, window):
         super().__init__(window, bg="black")
+        try:
+            # Load and set the background image
+            bg_img = Image.open("haunted_house.png")
+
+            #Force the image to fit the screen
+            window.update_idletasks()
+
+            # Resize to match the window size
+            bg_img = bg_img.resize((window.winfo_screenwidth(), window.winfo_screenheight()))
+
+            # Convert to PhotoImage
+            self.bg_image = ImageTk.PhotoImage(bg_img)
+
+            # Create a label to show the background
+            self.background_label = Label(self, image=self.bg_image, borderwidth=0)
+            self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
+            self.lower(self.background_label)
+
+        except Exception as e:
+            # If the image fails to load, print an error but continue
+            print("BACKGROUND FAILED:", e)
+        
+        # bring the GUI to the front
+        self.lift()
         # make the GUI fullscreen
         window.geometry("1100x700")
+        window.config(bg="black")
         # we need to know about the timer (7-segment display) to be able to pause/unpause it
         self._timer = None
         # we need to know about the pushbutton to turn off its LED when the program exits
@@ -95,20 +122,12 @@ class Lcd(Frame):
         #Toggles Phase Status Label
         self._ltoggles = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Toggles phase: ")
         self._ltoggles.grid(row=2, column=1, columnspan=3, sticky="e", padx=150)
-        # the strikes left
+
+        #Strikes Left Label
         self._lstrikes = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Strikes left: ")
         self._lstrikes.grid(row=0, column=2, sticky="e", padx=150)
 
         
-        #if (SHOW_BUTTONS):
-            # the pause button (pauses the timer)
-            #self._bpause = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Pause", anchor=CENTER, command=self.pause)
-            #self._bpause.grid(row=6, column=0, pady=40)
-            # the quit button
-            #self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
-            #self._bquit.grid(row=6, column=2, pady=40)
-
-
         # -----------------------------------------
         # Beginning of Wordle Phase Methods
 
