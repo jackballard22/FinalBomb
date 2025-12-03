@@ -6,7 +6,7 @@
 
 # constants
 DEBUG = False        # debug mode?
-RPi = False           # is this running on the RPi?
+RPi = True           # is this running on the RPi?
 SHOW_BUTTONS = False # show the Pause and Quit buttons on the main LCD GUI?
 COUNTDOWN = 300      # the initial bomb countdown value (seconds)
 NUM_STRIKES = 5      # the total strikes allowed before the bomb "explodes"
@@ -56,6 +56,8 @@ if (RPi):
         # pins are input and pulled down
         pin.direction = Direction.INPUT
         pin.pull = Pull.DOWN
+else:
+    component_wires = [0, 0, 0, 0, 0]
 
 # pushbutton
 # 6 pins: 4, 17, 27, 22, 3V3, 3V3
@@ -135,3 +137,4 @@ button_target = genButtonTarget()
 boot_text = f"*Add your own text here specific to your bomb*\n"\
             f"*Serial number: {serial}\n"\
             
+

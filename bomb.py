@@ -32,7 +32,8 @@ def setup_phases():
     # bind the 7-segment display to the LCD GUI so that it can be paused/unpaused from the GUI
     gui.setTimer(timer)
     # setup the keypad thread
-    keypad = Keypad(component_keypad, keypad_target)
+    keypad = Keypad(component_keypad, keypad_target, gui)
+    gui.setKeypad(keypad)
     # setup the jumper wires thread
     wires = Wires(component_wires, wires_target)
     # setup the pushbutton thread
@@ -170,6 +171,12 @@ def turn_off():
 window = Tk()
 gui = Lcd(window)
 
+
+if RPi:
+    gui.component_wires = component_wires
+    gui.component_keypad = component_keypad
+
+gui.component_wires = component_wires
 # initialize the bomb strikes and active phases (i.e., not yet defused)
 strikes_left = NUM_STRIKES
 active_phases = NUM_PHASES
@@ -179,3 +186,4 @@ gui.after(100, bootup)
 
 # display the LCD GUI
 window.mainloop()
+
