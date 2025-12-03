@@ -675,6 +675,34 @@ class Lcd(Frame):
             font=("Courier New", 18)
         )
         self.ritual_input_label.pack(pady=10)
+        # Frame for toggles + ritual button - jack
+        self.button_frame = Frame(self.ritual_frame, bg="black")
+        self.button_frame.pack(pady=20)
+        
+        #toggles - jack
+        self.toggle1 = tk.Checkbutton(self.button_frame, text="Toggle 1",
+                              variable=self.toggle1_var,
+                              command=self.update_button_color,
+                              bg="black", fg="#00ff00", selectcolor="black")
+        self.toggle1.grid(row=0, column=0, padx=5)
+
+        self.toggle2 = tk.Checkbutton(self.button_frame, text="Toggle 2",
+                              variable=self.toggle2_var,
+                              command=self.update_button_color,
+                              bg="black", fg="#00ff00", selectcolor="black")
+        self.toggle2.grid(row=0, column=1, padx=5)
+
+        self.toggle3 = tk.Checkbutton(self.button_frame, text="Toggle 3",
+                              variable=self.toggle3_var,
+                              command=self.update_button_color,
+                              bg="black", fg="#00ff00", selectcolor="black")
+        self.toggle3.grid(row=0, column=2, padx=5)
+        
+        self.ritual_button = tk.Button(self.button_frame, text="Press Me")
+        self.ritual_button.grid(row=1, column=0, columnspan=3, pady=10)
+
+
+
 
         # Initialize internal variables for the ritual
         self.ritual_round = 0
@@ -682,6 +710,20 @@ class Lcd(Frame):
         self.ritual_sequence = []
         self.ritual_user_input = []
         self.after(800, self.ritual_begin_round)
+        self.toggle1_var = tk.BooleanVar()
+        self.toggle2_var = tk.BooleanVar()
+        self.toggle3_var = tk.BooleanVar()
+        
+
+    def update_button_color(self):
+        # Mix RGB based on toggle states
+        r = 255 if self.toggle1_var.get() else 0
+        g = 255 if self.toggle2_var.get() else 0
+        b = 255 if self.toggle3_var.get() else 0
+
+    color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
+    self.ritual_button.config(bg=color)
+
 
     def ritual_begin_round(self):
         """Begin a new ritual round with a generated sequence."""
@@ -996,4 +1038,3 @@ class Toggles(PhaseThread):
         else:
             # TODO
             pass
-
