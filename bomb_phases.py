@@ -68,6 +68,8 @@ class Lcd(Frame):
         self.setupBoot()
         self.wordle_game_over = False
         self.current_minigame = "wordle"
+        self.wordle_rewarded_letters = set()  
+
 
 
 
@@ -267,6 +269,36 @@ class Lcd(Frame):
             else:
                 self.wordle_labels[self.current_row][col]["bg"] = "#3a3a3c"  
 
+        guess_letters = set()
+
+        for col in range(5):
+            letter = guess[col]
+            is_green = (letter == target[col])
+            is_yellow = (letter in target and not is_green)
+
+            if is_green or is_yellow:
+                guess_letters.add(letter)
+        
+        new_correct_letters = guess_letters - self.wordle_rewarded_letters
+        self.wordle_rewarded_letters.update(new_correct_letters)
+
+        newly_green = 0
+        newly_yellow = 0
+
+        for col in range(5):
+            letter = guess[col]
+            if letter in new_correct_letters:
+                if letter == target[col]:
+                    newly_green += 1
+                elif letter in target:
+                    newly_yellow += 1
+
+        extra_time = newly_yellow * 30 + newly_green * 15
+
+        if extra_time > 0 and self._timer:
+            self._timer._value += extra_time
+            print(f"[DEBUG] +{extra_time} seconds awarded! New time={self._timer._value}")
+
         # Check if the guess is correct
         if guess == target:
             self.wordle_game_over = True
@@ -379,7 +411,7 @@ class Lcd(Frame):
             highlightthickness=2,
             highlightbackground="#00ff00",
             width=500,
-            height=400
+            height=270
         )
         # Position the frame in the grid
         self.wires_frame.grid(
@@ -402,23 +434,28 @@ class Lcd(Frame):
             font=("Courier New", 20)
         )
         #Text position
-        self.wires_text.pack(pady=20)
+        wires_row = Frame(self.wires_frame, bg="black")
+        self.wires_text.pack(pady=10)
+
+        # THIS WAS MISSING
+        wires_row.pack(pady=10)
+
 
         # Indicators for the 5 wires
         self.wire_indicators = []
         for i in range(5):
             box = Label(
-                self.wires_frame,
+                wires_row,
                 text=f"Wire {i+1}",
                 fg="#00ff00",
                 bg="gray20",
-                width=12,
+                width=10,
                 height=2,
                 relief="solid",
                 bd=2,
                 font=("Courier New", 14)
             )
-            box.pack(pady=5)
+            box.grid(row=0, column=i, padx=8)  # horizontal layout
             self.wire_indicators.append(box)
 
         # Internal variables
@@ -427,6 +464,41 @@ class Lcd(Frame):
         self.wires_start_round(0)
         # Start updating
         self.update_wire_indicators()
+    def get_wires_hint(self, pattern):
+        HINTS = {
+            # --- Round 1 (2 correct wires) ---
+            "11000": "Two wires resonate together in the west.",
+            "10100": "A spark jumps between the first and third wires.",
+            "10010": "One wire hides at the start, one near the middle.",
+            "10001": "The truth lies at the very beginning… and the very end.",
+            "01100": "The second and third wires hum side-by-side.",
+            "01010": "Two isolated pulses: one near the start, one in the middle.",
+            "01001": "A whisper between the second wire… and the last.",
+            "00110": "Two neighboring wires at the center glow faintly.",
+            "00101": "The third and fifth wires respond to the current.",
+            "00011": "The last two wires resonate together.",
+
+            # --- Round 2 (3 correct wires) ---
+            "11100": "The first three wires pulse strongly.",
+            "11010": "Three sparks: a pair at the start, and one in the middle.",
+            "11001": "A pair at the beginning… and one far at the end.",
+            "10110": "Scattered currents: wires 1, 3, and 4 are alive.",
+            "10101": "The odd wires (1,3,5) carry the current.",
+            "10011": "Wires 1, 4, and 5 hum with hidden energy.",
+            "01110": "The second, third, and fourth wires glow in unison.",
+            "01101": "Wires 2, 3, and 5 whisper together.",
+            "01011": "The second wire stands alone while 4 and 5 resonate.",
+            "00111": "The last three wires vibrate with power.",
+
+            # --- Round 3 (4 correct wires) ---
+            "11110": "Only the final wire is silent.",
+            "11101": "Only the fourth wire fails to hum.",
+            "11011": "Only the third wire remains quiet.",
+            "10111": "Only the second wire is powerless.",
+            "01111": "Only the first wire refuses to glow.",
+        }
+
+        return HINTS.get(pattern, "The currents are chaotic… no hint available.")
 
     # Begin a specific wires round
     def wires_start_round(self, round_index):
@@ -447,17 +519,25 @@ class Lcd(Frame):
         pattern_list = ["1"] * needed + ["0"] * (5 - needed)
         random.shuffle(pattern_list)
         self.wires_target_pattern = "".join(pattern_list)
+        hint = self.get_wires_hint(self.wires_target_pattern)
+
 
         # Puts the answer for the Wires in the terminal for easier testing
         print(f"[DEBUG] Starting Round {round_index+1}, target = {self.wires_target_pattern}")
 
+
+
         # Update the text on screen
         self.wires_text.config(
             text=f"Round {round_index+1}/3\n\n"
+                f"{hint}\n\n"
                 f"The house whispers...\n"
                 f"\"\"\"{needed} conduits carry the hidden current...\"\"\"\n\n"
                 f"Attempt {self.current_attempt}/2"
         )
+
+
+
 
     # Handle submission of wires pattern
     def wires_handle_submit(self):
@@ -721,8 +801,8 @@ class Lcd(Frame):
         g = 255 if self.toggle2_var.get() else 0
         b = 255 if self.toggle3_var.get() else 0
 
-    color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
-    self.ritual_button.config(bg=color)
+        color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
+        self.ritual_button.config(bg=color)
 
 
     def ritual_begin_round(self):
