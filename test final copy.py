@@ -1259,49 +1259,44 @@ class Keypad(PhaseThread):
                     key = str(self._component.pressed_keys[0])
                 except:
                     key = ""
+
+            # wait until released (debounce)
                 while self._component.pressed_keys:
                     sleep(0.1)
-            
-                            # =============== QUIZ MODE ===============
-                if getattr(self.gui, "current_minigame", None) == "quiz":
-                    if key in "0123456789":
-                        self.gui.quiz_type_digit(key)
-                    elif key == "*":
-                        self.gui.quiz_backspace()
-                    elif key == "#":
-                        self.gui.quiz_handle_submit()
-                    sleep(0.1)
-                    continue
 
-                # =============== WIRES MODE ===============
-                if getattr(self.gui, "current_minigame", None) == "wires":
-                    if key == "#":
-                        try:
-                            self.gui.wires_handle_submit()
-                        except Exception as e:
-                            print("Error in wires # handling:", e)
-                    sleep(0.1)
-                    continue
-
-                # =============== WORDLE MODE (T9) ===============
+            # ======= T9 LETTER KEYS (2–9) =======
                 if key in self.gui.t9_map:
                     letters = self.gui.t9_map[key]
                     idx = self.gui.t9_state[key]
                     letter = letters[idx]
+
+                # PREVIEW THE LETTER ON WORDLE TILE
                     self.gui.wordle_type_letter_preview(letter)
+
+                # rotate for next press
                     self.gui.t9_state[key] = (idx + 1) % len(letters)
 
+            # ======= CONFIRM LETTER (1) =======
                 elif key == "1":
                     self.gui.wordle_confirm_letter()
 
+            # ======= BACKSPACE (*) =======
                 elif key == "*":
                     self.gui.wordle_backspace()
 
-                elif key == "#":
+            # ======= ENTER (#) =======
+                elif str(key) == "#":
                     try:
-                        self.gui.wordle_submit_row()
+                        if self.gui.current_minigame == "wires":
+                            self.gui.wires_handle_submit()
+                        elif self.gui.current_minigame == "quiz":
+                            self.gui.quiz_handle_submit()
+                        else:
+                            self.gui.wordle_submit_row()
                     except Exception as e:
                         print("Error in # handling:", e)
+                    continue
+
 
             sleep(0.1)
 
