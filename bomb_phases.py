@@ -969,6 +969,7 @@ class Timer(PhaseThread):
         return f"{self._min}:{self._sec}"
 
 # the keypad phase
+# the keypad phase
 class Keypad(PhaseThread):
     def __init__(self, component, target, gui, name="Keypad"):
         super().__init__(name, component, target)
@@ -981,49 +982,78 @@ class Keypad(PhaseThread):
         self._running = True
         while self._running:
             if self._component.pressed_keys:
+                # read the first pressed key from the hardware
                 try:
                     key = str(self._component.pressed_keys[0])
                 except:
                     key = ""
 
-            # wait until released (debounce)
+                # wait until released (debounce)
                 while self._component.pressed_keys:
                     sleep(0.1)
 
-            # ======= T9 LETTER KEYS (2–9) =======
-                if key in self.gui.t9_map:
+                # ====================================================
+                # QUIZ PHASE: treat keypad like a normal numeric keypad
+                # ====================================================
+                if self.gui.current_minigame == "quiz":
+                    # digits 0–9 build up the answer/code
+                    if key.isdigit():
+                        self.gui.quiz_type_digit(key)
+                        # no need to go further for digits
+                        sleep(0.1)
+                        continue
+
+                    # '*' clears the current buffer
+                    if key == "*":
+                        self.gui.quiz_backspace()
+                        sleep(0.1)
+                        continue
+
+                    # '#' is handled below in the common "#" handler,
+                    # which already calls quiz_handle_submit() when
+                    # current_minigame == "quiz"
+                    # so we just let it fall through.
+
+                # ==========================================
+                # WORDLE / OTHER PHASES: original T9 behavior
+                # ==========================================
+                # ======= T9 LETTER KEYS (2–9) =======
+                if key in getattr(self.gui, "t9_map", {}):
                     letters = self.gui.t9_map[key]
                     idx = self.gui.t9_state[key]
                     letter = letters[idx]
 
-                # PREVIEW THE LETTER ON WORDLE TILE
+                    # PREVIEW THE LETTER ON WORDLE TILE
                     self.gui.wordle_type_letter_preview(letter)
 
-                # rotate for next press
+                    # rotate for next press
                     self.gui.t9_state[key] = (idx + 1) % len(letters)
 
-            # ======= CONFIRM LETTER (1) =======
+                # ======= CONFIRM LETTER (1) =======
                 elif key == "1":
+                    # confirm the previewed letter in Wordle
                     self.gui.wordle_confirm_letter()
 
-            # ======= BACKSPACE (*) =======
+                # ======= BACKSPACE (*) =======
                 elif key == "*":
+                    # in non-quiz phases, '*' acts as backspace for Wordle
                     self.gui.wordle_backspace()
 
-            # ======= ENTER (#) =======
-                elif str(key) == "#":
+                # ======= ENTER (#) =======
+                elif key == "#":
                     try:
                         if self.gui.current_minigame == "wires":
                             self.gui.wires_handle_submit()
+                        elif self.gui.current_minigame == "quiz":
+                            # this will check levers and/or keypad buffer
+                            self.gui.quiz_handle_submit()
                         else:
+                            # default: submit current Wordle row
                             self.gui.wordle_submit_row()
                     except Exception as e:
                         print("Error in # handling:", e)
-                    continue
 
-
-            sleep(0.1)
-
+                sleep(0.1)
 
     # returns the keypad combination as a string
     def __str__(self):
