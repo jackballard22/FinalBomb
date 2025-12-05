@@ -6,7 +6,7 @@
 
 # constants
 DEBUG = False        # debug mode?
-RPi = True           # is this running on the RPi?
+RPi = False# is this running on the RPi?
 SHOW_BUTTONS = False # show the Pause and Quit buttons on the main LCD GUI?
 COUNTDOWN = 300      # the initial bomb countdown value (seconds)
 NUM_STRIKES = 5      # the total strikes allowed before the bomb "explodes"
@@ -136,5 +136,20 @@ button_target = genButtonTarget()
 # set the bomb's LCD bootup text
 boot_text = f"*Add your own text here specific to your bomb*\n"\
             f"*Serial number: {serial}\n"\
-            
+    if __name__ == "__main__":
+        print("Starting spooky bomb GUI...")  # debug print so we know this runs
+
+    # Create the main Tkinter window
+        root = Tk()
+        root.title("Spooky Bomb")
+
+    # Create the LCD GUI
+        lcd = Lcd(root)
+
+    # Build the LCD interface (timer label, phase labels, Wordle grid, etc.)
+        lcd.setup()
+
+    # Start Tkinter event loop (this actually opens the window)
+        root.mainloop()
+          
 
