@@ -1003,31 +1003,63 @@ class Lcd(Frame):
         return mapping.get(pattern, None)
 
     def quiz_handle_submit(self):
-        """
-        TEST MODE: just skip to the next question whenever Enter (or #) is pressed.
-        Ignores levers/keypad and does NOT check correctness.
-        """
+        """Real quiz logic for # submit button."""
         if self.current_minigame != "quiz":
             return
 
-        # Already finished all questions
-        if self.quiz_index >= len(self.quiz_questions):
-            self.quiz_status_label.config(
-                text="You answered all questions. The house releases you..."
-            )
-            # End the game after a short pause
-            try:
-                self.after(2000, lambda: self.conclusion(success=True))
-            except Exception:
-                pass
+        q = self.quiz_questions[self.quiz_index]
+
+        # --------------------------
+        # MULTIPLE CHOICE QUESTIONS
+        # --------------------------
+        if q["type"] == "mc":
+
+        # Step 1 — if waiting for lever input
+            if self.quiz_state == "awaiting_answer":
+                lever_choice = self.read_lever_choice()
+
+                if lever_choice is None:
+                    self.quiz_status_label.config(text="No lever selected!")
+                    return
+
+                if lever_choice != q["correct_choice"]:
+                    self.quiz_wrong_answer()
+                    return
+
+            # Lever was correct → now require keypad code
+                self.quiz_state = "awaiting_code"
+                self.quiz_status_label.config(text="Correct lever! Enter the code then press #.")
+                return
+
+        # Step 2 — waiting for keypad code
+            elif self.quiz_state == "awaiting_code":
+                if self.quiz_keypad_buffer == q["code"]:
+                    # MC question fully correct
+                    self.quiz_index += 1
+                    self.quiz_status_label.config(text="Correct! Proceeding...")
+                    self.after(300, self.load_quiz_question)
+                else:
+                    self.quiz_wrong_answer()
+                return
+
+    # --------------------------
+    # NUMERIC QUESTIONS
+    # --------------------------
+        elif q["type"] == "numeric":
+            if not self.quiz_keypad_buffer.isdigit():
+                self.quiz_status_label.config(text="Enter a number!")
+                return
+
+            player_num = int(self.quiz_keypad_buffer)
+
+            if player_num == q["answer_number"]:
+                self.quiz_index += 1
+                self.quiz_status_label.config(text="Correct! Next question...")
+                self.after(300, self.load_quiz_question)
+            else:
+                self.quiz_wrong_answer()
             return
 
-        # Move to next question
-        self.quiz_status_label.config(text="Skipping to next question...")
-        self.quiz_index += 1
-
-        # Load next question (or show finish message if at end)
-        self.after(300, self.load_quiz_question)
 
         
     def quiz_wrong_answer(self):
