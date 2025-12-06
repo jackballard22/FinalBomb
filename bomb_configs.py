@@ -136,20 +136,6 @@ button_target = genButtonTarget()
 # set the bomb's LCD bootup text
 boot_text = f"*Add your own text here specific to your bomb*\n"\
             f"*Serial number: {serial}\n"\
-    if __name__ == "__main__":
-        print("Starting spooky bomb GUI...")  # debug print so we know this runs
 
-    # Create the main Tkinter window
-        root = Tk()
-        root.title("Spooky Bomb")
-
-    # Create the LCD GUI
-        lcd = Lcd(root)
-
-    # Build the LCD interface (timer label, phase labels, Wordle grid, etc.)
-        lcd.setup()
-
-    # Start Tkinter event loop (this actually opens the window)
-        root.mainloop()
           
 
