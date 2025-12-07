@@ -872,7 +872,7 @@ class Lcd(Frame):
         # Instructions for lever mapping
         self.quiz_lever_help = Label(
             self.quiz_frame,
-            text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
+            text="Levers: A, B, C, D (left to right)\n"
                  "Set one pattern, then press # to lock in.",
             fg="#00ff00",
             bg="black",
