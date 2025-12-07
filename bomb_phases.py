@@ -32,6 +32,13 @@ WORDLE_WORDS = [
 # the LCD display GUI
 class Lcd(Frame):
     def __init__(self, window):
+        from bomb_configs import component_toggles
+        self.toggles = component_toggles
+
+        from bomb_configs import component_wires
+        self.component_wires = component_wires
+
+
         super().__init__(window, bg="black")
         try:
             # Load and set the background image
@@ -761,29 +768,9 @@ class Lcd(Frame):
         self.button_frame = Frame(self.ritual_frame, bg="black")
         self.button_frame.pack(pady=20)
 
-        # --- BooleanVars MUST come before Checkbuttons ---
-        self.toggle1_var = tk.BooleanVar(value=False)
-        self.toggle2_var = tk.BooleanVar(value=False)
-        self.toggle3_var = tk.BooleanVar(value=False)
+        
                 # ------- Toggle Checkbuttons --------
-        tk.Checkbutton(
-            self.button_frame, text="Toggle 1 (RED)",
-            variable=self.toggle1_var, fg="#00ff00", bg="black",
-            selectcolor="black"
-        ).grid(row=0, column=0, padx=10)
-
-        tk.Checkbutton(
-            self.button_frame, text="Toggle 2 (GREEN)",
-            variable=self.toggle2_var, fg="#00ff00", bg="black",
-            selectcolor="black"
-        ).grid(row=0, column=1, padx=10)
-
-        tk.Checkbutton(
-            self.button_frame, text="Toggle 3 (BLUE)",
-            variable=self.toggle3_var, fg="#00ff00", bg="black",
-            selectcolor="black"
-        ).grid(row=0, column=2, padx=10)
-
+       
 
 
         # Initialize internal variables for the ritual
@@ -846,35 +833,36 @@ class Lcd(Frame):
 
     def ritual_button_press(self):
 
-        # Determine which color the toggles represent
-        r_on = self.toggle1_var.get()
-        g_on = self.toggle2_var.get()
-        b_on = self.toggle3_var.get()
+        if RPi:
+            t_states = [t.value for t in self.toggles]
+        else:
+            t_states = [False, False, False, False]  # For testing on laptop
 
-        # Only allow exactly one toggle ON at a time
-        color = None
-        if r_on and not g_on and not b_on:
-            color = "RED"
-        elif g_on and not r_on and not b_on:
-            color = "GREEN"
-        elif b_on and not r_on and not g_on:
-            color = "BLUE"
+        # Identify which toggles are UP (False if pulled down)
+        on = [i for i, state in enumerate(t_states) if state == True]
 
-        if color is None:
-            self.ritual_input_label.config(
-                text="Set exactly ONE toggle ON to choose RED, GREEN, or BLUE."
-            )
+        # RESET toggle (toggle #4)
+        if 3 in on:
+            self.ritual_user_input = []
+            self.ritual_input_label.config(text="Inputs cleared. Start again.")
             return
 
-        # Record the player's choice
-        self.ritual_user_input.append(color)
-        self.ritual_input_label.config(
-            text=f"Your sigils: {' - '.join(self.ritual_user_input)}"
-        )
+        # Must choose exactly one color
+        if len(on) != 1:
+            self.ritual_input_label.config(text="Flip exactly ONE toggle UP to choose a color.")
+            return
 
-        # Once the player has entered the full sequence, check it
+        color_map = {0: "RED", 1: "GREEN", 2: "BLUE"}
+        color = color_map[on[0]]
+
+        # Record input
+        self.ritual_user_input.append(color)
+        self.ritual_input_label.config(text=f"Your sigils: {' - '.join(self.ritual_user_input)}")
+
+        # If sequence is complete, check it
         if len(self.ritual_user_input) == len(self.ritual_sequence):
             self.ritual_check_sequence()
+
 
     def ritual_check_sequence(self):
         """Compare player input with target sequence and handle success/failure."""
