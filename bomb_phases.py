@@ -8,7 +8,7 @@
 from bomb_configs import *
 # other imports
 from tkinter import *
-import tkinter
+import tkinter as tk
 from threading import Thread
 from time import sleep
 import os
@@ -562,7 +562,7 @@ class Lcd(Frame):
             )
             return
         # Second incorrect submission, check if this was the last round
-        if round_number == 2:   # round 0, 1, 2 = 3 rounds
+        if self.current_round == 2:   # round 0, 1, 2 = 3 rounds
             self.finish_wires_phase()
 
         # Checks if the user failed this round
@@ -682,6 +682,7 @@ class Lcd(Frame):
     # -----------------------------------------
 
     #Beginning of Button Phase Methods
+        #Beginning of Button Phase Methods
     def start_button_phase(self):
         self.current_minigame = "button_ritual"
 
@@ -764,71 +765,46 @@ class Lcd(Frame):
         self.toggle1_var = tk.BooleanVar(value=False)
         self.toggle2_var = tk.BooleanVar(value=False)
         self.toggle3_var = tk.BooleanVar(value=False)
-
-        # Toggles - jack
-        self.toggle1 = tk.Checkbutton(
-            self.button_frame,
-            text="Toggle 1",
-            variable=self.toggle1_var,
-            command=self.update_button_color,
-            bg="black",
-            fg="#00ff00",
+                # ------- Toggle Checkbuttons --------
+        tk.Checkbutton(
+            self.button_frame, text="Toggle 1 (RED)",
+            variable=self.toggle1_var, fg="#00ff00", bg="black",
             selectcolor="black"
-        )
-        self.toggle1.grid(row=0, column=0, padx=5)
+        ).grid(row=0, column=0, padx=10)
 
-        self.toggle2 = tk.Checkbutton(
-            self.button_frame,
-            text="Toggle 2",
-            variable=self.toggle2_var,
-            command=self.update_button_color,
-            bg="black",
-            fg="#00ff00",
+        tk.Checkbutton(
+            self.button_frame, text="Toggle 2 (GREEN)",
+            variable=self.toggle2_var, fg="#00ff00", bg="black",
             selectcolor="black"
-        )
-        self.toggle2.grid(row=0, column=1, padx=5)
+        ).grid(row=0, column=1, padx=10)
 
-        self.toggle3 = tk.Checkbutton(
-            self.button_frame,
-            text="Toggle 3",
-            variable=self.toggle3_var,
-            command=self.update_button_color,
-            bg="black",
-            fg="#00ff00",
+        tk.Checkbutton(
+            self.button_frame, text="Toggle 3 (BLUE)",
+            variable=self.toggle3_var, fg="#00ff00", bg="black",
             selectcolor="black"
-        )
-        self.toggle3.grid(row=0, column=2, padx=5)
+        ).grid(row=0, column=2, padx=10)
 
-        # Ritual button – this is what the player presses to "submit" each color
-        self.ritual_button = tk.Button(
-            self.button_frame,
-            text="Press Me",
-            command=self.ritual_button_press
-        )
-        self.ritual_button.grid(row=1, column=0, columnspan=3, pady=10)
+
 
         # Initialize internal variables for the ritual
-        self.ritual_round = 0  # 0,1,2  (3 rounds)
-        self.ritual_attempts = 2  # total failed attempts allowed
-        self.ritual_sequence = []  # e.g. ["RED","BLUE"]
-        self.ritual_user_input = []  # what player enters
+        self.ritual_round = 0          # 0,1,2  (3 rounds)
+        self.ritual_attempts = 2       # total failed attempts allowed
+        self.ritual_sequence = []      # e.g. ["RED","BLUE"]
+        self.ritual_user_input = []    # what player enters
 
         # Start first round after a short delay
         self.after(800, self.ritual_begin_round)
 
-    def update_button_color(self):
-        # Mix RGB based on toggle states
-        r = 255 if self.toggle1_var.get() else 0
-        g = 255 if self.toggle2_var.get() else 0
-        b = 255 if self.toggle3_var.get() else 0
+        
 
-        color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
-        self.ritual_button.config(bg=color)
+    def update_button_color(self):
+        pass
+
 
     def ritual_begin_round(self):
         """Begin a new ritual round with a generated sequence."""
 
-        lengths = [2, 3, 4]  # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
+        lengths = [2, 3, 4]   # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
 
         # Safety check
         if self.ritual_round >= len(lengths):
@@ -850,7 +826,7 @@ class Lcd(Frame):
         # Begin sequence display
         self.after(1000, lambda: self.ritual_display_sequence(0))
 
-        print(f"[DEBUG] Ritual sequence (round {self.ritual_round + 1}): {self.ritual_sequence}")
+        print(f"[DEBUG] Ritual sequence (round {self.ritual_round+1}): {self.ritual_sequence}")
 
     def ritual_display_sequence(self, index):
         """Shows color sequence one at a time."""
@@ -869,10 +845,6 @@ class Lcd(Frame):
         self.after(1000, lambda: self.ritual_display_sequence(index + 1))
 
     def ritual_button_press(self):
-        """
-        Called when the GUI ritual button is pressed.
-        The current toggle combination chooses RED, GREEN, or BLUE.
-        """
 
         # Determine which color the toggles represent
         r_on = self.toggle1_var.get()
@@ -949,13 +921,16 @@ class Lcd(Frame):
                 # Move on to the quiz phase even on failure
                 self.after(1500, self.start_quiz_phase)
 
+
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
         self._timer = timer
 
+
     # lets us turn off the pushbutton's RGB LED
     def setButton(self, button):
         self._button = button
+        button.gui = self
 
     def setKeypad(self, keypad):
         self._keypad = keypad
@@ -981,10 +956,10 @@ class Lcd(Frame):
 
         # reconfigure the GUI
         # the retry button
-        self._bretry = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Retry", anchor=CENTER, command=self.retry)
+        self._bretry = tk.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Retry", anchor=CENTER, command=self.retry)
         self._bretry.grid(row=1, column=0, pady=40)
         # the quit button
-        self._bquit = tkinter.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
+        self._bquit = tk.Button(self, bg="red", fg="white", font=("Courier New", 18), text="Quit", anchor=CENTER, command=self.quit)
         self._bquit.grid(row=1, column=1, pady=40)
 
     # re-attempts the bomb (after an explosion or a successful defusion)
@@ -1071,7 +1046,6 @@ class Timer(PhaseThread):
         return f"{self._min}:{self._sec}"
 
 # the keypad phase
-# the keypad phase
 class Keypad(PhaseThread):
     def __init__(self, component, target, gui, name="Keypad"):
         super().__init__(name, component, target)
@@ -1084,78 +1058,49 @@ class Keypad(PhaseThread):
         self._running = True
         while self._running:
             if self._component.pressed_keys:
-                # read the first pressed key from the hardware
                 try:
                     key = str(self._component.pressed_keys[0])
                 except:
                     key = ""
 
-                # wait until released (debounce)
+            # wait until released (debounce)
                 while self._component.pressed_keys:
                     sleep(0.1)
 
-                # ====================================================
-                # QUIZ PHASE: treat keypad like a normal numeric keypad
-                # ====================================================
-                if self.gui.current_minigame == "quiz":
-                    # digits 0–9 build up the answer/code
-                    if key.isdigit():
-                        self.gui.quiz_type_digit(key)
-                        # no need to go further for digits
-                        sleep(0.1)
-                        continue
-
-                    # '*' clears the current buffer
-                    if key == "*":
-                        self.gui.quiz_backspace()
-                        sleep(0.1)
-                        continue
-
-                    # '#' is handled below in the common "#" handler,
-                    # which already calls quiz_handle_submit() when
-                    # current_minigame == "quiz"
-                    # so we just let it fall through.
-
-                # ==========================================
-                # WORDLE / OTHER PHASES: original T9 behavior
-                # ==========================================
-                # ======= T9 LETTER KEYS (2–9) =======
-                if key in getattr(self.gui, "t9_map", {}):
+            # ======= T9 LETTER KEYS (2–9) =======
+                if key in self.gui.t9_map:
                     letters = self.gui.t9_map[key]
                     idx = self.gui.t9_state[key]
                     letter = letters[idx]
 
-                    # PREVIEW THE LETTER ON WORDLE TILE
+                # PREVIEW THE LETTER ON WORDLE TILE
                     self.gui.wordle_type_letter_preview(letter)
 
-                    # rotate for next press
+                # rotate for next press
                     self.gui.t9_state[key] = (idx + 1) % len(letters)
 
-                # ======= CONFIRM LETTER (1) =======
+            # ======= CONFIRM LETTER (1) =======
                 elif key == "1":
-                    # confirm the previewed letter in Wordle
                     self.gui.wordle_confirm_letter()
 
-                # ======= BACKSPACE (*) =======
+            # ======= BACKSPACE (*) =======
                 elif key == "*":
-                    # in non-quiz phases, '*' acts as backspace for Wordle
                     self.gui.wordle_backspace()
 
-                # ======= ENTER (#) =======
-                elif key == "#":
+            # ======= ENTER (#) =======
+                elif str(key) == "#":
                     try:
                         if self.gui.current_minigame == "wires":
-                            self.gui.wires_handle_submit()
-                        elif self.gui.current_minigame == "quiz":
-                            # this will check levers and/or keypad buffer
-                            self.gui.quiz_handle_submit()
+                            self.gui.wires_handle_submit() 
                         else:
-                            # default: submit current Wordle row
                             self.gui.wordle_submit_row()
                     except Exception as e:
                         print("Error in # handling:", e)
+                    continue
 
-                sleep(0.1)
+
+            sleep(0.1)
+
 
     # returns the keypad combination as a string
     def __str__(self):
@@ -1196,6 +1141,7 @@ class Button(PhaseThread):
         self._color = color
         # we need to know about the timer (7-segment display) to be able to determine correct pushbutton releases in some cases
         self._timer = timer
+        self.gui = None
 
     # runs the thread
     def run(self):
@@ -1206,10 +1152,23 @@ class Button(PhaseThread):
         self._rgb[2].value = False if self._color == "B" else True
         while (self._running):
             # get the pushbutton's state
-            self._value = self._component.value
+            pressed = self._component.value 
             # it is pressed
-            if (self._value):
+            if self.gui is not None and self.gui.current_minigame == "button_ritual":
+                if pressed and not self._pressed:
+                    self._pressed = True
+                
+                if not pressed and self._pressed:
+                    self._pressed = False
+
+                    try:
+                        self.gui.ritual_button_press()
+                    except Exception as e:
+                        print("[DEBUG] ritual_button_press error:", e)
+                sleep(0.05)
+                continue
                 # note it
+            if (pressed):
                 self._pressed = True
             # it is released
             else:
