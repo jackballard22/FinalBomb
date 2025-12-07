@@ -781,6 +781,8 @@ class Lcd(Frame):
 
         # Start first round after a short delay
         self.after(800, self.ritual_begin_round)
+        self.after(100, self.ritual_poll_toggles)
+
 
         
 
@@ -908,6 +910,47 @@ class Lcd(Frame):
 
                 # Move on to the quiz phase even on failure
                 self.after(1500, self.start_quiz_phase)
+
+    def ritual_poll_toggles(self):
+        self.ritual_update_led()
+        # Keep checking every 100 ms
+        self.after(100, self.ritual_poll_toggles)
+    def ritual_update_led(self):
+        """Sets the pushbutton LED color based on current toggle state."""
+        if not RPi:
+            return  # ignore on laptop
+
+        # Read real hardware toggle states (True means UP because Pull.DOWN)
+        t_states = [t.value for t in self.toggles]
+
+        # Which toggles are UP (True)
+        on = [i for i, state in enumerate(t_states) if state == True]
+
+        # Access the pushbutton RGB pins
+        r_pin, g_pin, b_pin = self._button._rgb
+
+        # Turn everything OFF first
+        r_pin.value = True
+        g_pin.value = True
+        b_pin.value = True
+
+        # No toggles UP → LED OFF
+        if len(on) != 1:
+            return
+
+        idx = on[0]
+
+        # Toggle → LED mapping
+        if idx == 0:      # Toggle 1
+            r_pin.value = False
+        elif idx == 1:    # Toggle 2
+            g_pin.value = False
+        elif idx == 2:    # Toggle 3
+            b_pin.value = False
+        elif idx == 3:    # Toggle 4 (Reset mode)
+            r_pin.value = False
+            g_pin.value = False
+            b_pin.value = False
 
 
     # lets us pause/unpause the timer (7-segment display)
