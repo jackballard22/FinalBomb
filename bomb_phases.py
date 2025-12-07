@@ -780,7 +780,7 @@ class Lcd(Frame):
         self.ritual_user_input = []    # what player enters
 
         # Start first round after a short delay
-        self.after(800, self.ritual_begin_round)
+        self.after(800, self.ritual_prepare_screen)
         self.after(100, self.ritual_poll_toggles)
 
 
@@ -952,6 +952,26 @@ class Lcd(Frame):
             g_pin.value = False
             b_pin.value = False
 
+
+    def ritual_prepare_screen(self):
+        """Shows a warning screen before the ritual sequence starts."""
+        self.ritual_sequence_label.config(text="")
+        self.ritual_input_label.config(text="")
+
+        self.ritual_text.config(text="THE SIGILS ARE AWAKENING...\nPAY CLOSE ATTENTION.")
+
+        countdown = ["3", "2", "1"]
+
+        def do_count(i):
+            if i < len(countdown):
+                self.ritual_sequence_label.config(text=countdown[i])
+                self.after(1000, lambda: do_count(i + 1))
+            else:
+                self.ritual_sequence_label.config(text="")
+                self.ritual_text.config(text="WATCH THE SEQUENCE...")
+                self.after(500, self.ritual_begin_round)
+
+        do_count(0)
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
