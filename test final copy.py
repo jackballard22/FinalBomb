@@ -16,6 +16,8 @@ import sys
 
 import random
 from PIL import Image, ImageTk
+# global strikes counter (starts from NUM_STRIKES in bomb_configs)
+strikes_left = NUM_STRIKES
 
 
 #Jaeden : I got help creating the Wordle and Wires phase logic from ChatGPT, but I made sure to understand the code and comment it well.
@@ -26,6 +28,47 @@ WORDLE_WORDS = [
     "BLOOD", "CURSE", "CREEP", "SCARE", 
     "BONES", "EERIE", "FANGS", "MASKS", 
     "HAUNT", "DEVIL", "DEMON", "WITCH",
+]
+QUIZ_QUESTIONS = [
+    {
+        "prompt": "How many bits are in one byte?",
+        "choices": ["4", "8", "16", "32"],
+        "correct_choice": "B",     # lever B should be up
+        "type": "mc",
+        "code": "7"                # number you must enter on keypad after
+    },
+    {
+        "prompt": "What is 6 × 7?",
+        "choices": None,           # numeric / math question
+        "type": "numeric",
+        "answer_number": 42        # user types 42 on keypad
+    },
+    {
+        "prompt": "What is the time complexity of binary search on a sorted list?",
+        "choices": ["O(1)", "O(n)", "O(log n)", "O(n^2)"],
+        "correct_choice": "C",
+        "type": "mc",
+        "code": "3"
+    },
+    {
+        "prompt": "The haunted clock chimes 3 times, then 4 times, and repeats this pattern twice. How many total chimes do you hear?",
+        "choices": None,
+        "type": "numeric",
+        "answer_number": 14
+    },
+    {
+        "prompt": "In Python, which of these values is a boolean?",
+        "choices": ["\"True\"", "1", "True", "\"False\""],
+        "correct_choice": "C",
+        "type": "mc",
+        "code": "9"
+    },
+    {
+        "prompt": "You are in a dark hallway. You see 2 doors on the left and 3 on the right. Each door hides 5 ghosts. How many ghosts total?",
+        "choices": None,
+        "type": "numeric",
+        "answer_number": 25
+    },
 ]
 
 
@@ -68,7 +111,17 @@ class Lcd(Frame):
         self.setupBoot()
         self.wordle_game_over = False
         self.current_minigame = "wordle"
-        self.wordle_rewarded_letters = set()  
+                # hardware components from bomb_configs
+        self.component_wires = component_wires
+        self.component_toggles = component_toggles
+
+        # Quiz phase state
+        self.quiz_questions = QUIZ_QUESTIONS
+        self.quiz_index = 0
+        self.quiz_mode = None          # "mc" or "numeric"
+        self.quiz_state = None         # "awaiting_answer" or "awaiting_code"
+        self.quiz_keypad_buffer = ""   # for numeric and code input
+        self.quiz_penalty_seconds = 15
 
 
 
@@ -88,7 +141,7 @@ class Lcd(Frame):
     def setup(self):
         # destroy the boot text widget
         self._lscroll.destroy()
-
+        
         #Mapping of T9 keys to letters
         self.t9_map = {
             "2": "ABC",
@@ -141,7 +194,8 @@ class Lcd(Frame):
 
         #Allowing keyboard input for testing purposes
         # Enter key to submit row
-        self.bind_all("<Return>", lambda event: self.wordle_submit_row())
+        self.bind_all("<Return>", self.handle_return)
+
         # Letter typing (A–Z)
         self.bind_all("<Key>", self.wordle_keypress)
 
@@ -203,8 +257,28 @@ class Lcd(Frame):
         self.current_row = 0
         self.current_col = 0
 
-
-
+    def addStrike(self):
+        """Reduce strikes_left and update the label."""
+        global strikes_left
+        strikes_left -= 1
+        try:
+            self._lstrikes["text"] = f"Strikes left: {strikes_left}"
+        except AttributeError:
+            # label might not exist yet in some paths
+            pass
+            
+    def handle_return(self, event):
+        """What Enter does depends on the current minigame."""
+        if self.current_minigame == "wires":
+            # Submit wires pattern
+            self.wires_handle_submit()
+        elif self.current_minigame == "quiz":
+            # Submit quiz answer or code
+            self.quiz_handle_submit()
+        else:
+            # Default: Wordle submit
+            self.wordle_submit_row()
+            
     # Wordle Phase Methods
     def wordle_set_letter(self, row, col, letter):
         self.wordle_labels[row][col]["text"] = letter.upper()
@@ -268,36 +342,6 @@ class Lcd(Frame):
                 self.wordle_labels[self.current_row][col]["bg"] = "#b59f3b"  
             else:
                 self.wordle_labels[self.current_row][col]["bg"] = "#3a3a3c"  
-
-        guess_letters = set()
-
-        for col in range(5):
-            letter = guess[col]
-            is_green = (letter == target[col])
-            is_yellow = (letter in target and not is_green)
-
-            if is_green or is_yellow:
-                guess_letters.add(letter)
-        
-        new_correct_letters = guess_letters - self.wordle_rewarded_letters
-        self.wordle_rewarded_letters.update(new_correct_letters)
-
-        newly_green = 0
-        newly_yellow = 0
-
-        for col in range(5):
-            letter = guess[col]
-            if letter in new_correct_letters:
-                if letter == target[col]:
-                    newly_green += 1
-                elif letter in target:
-                    newly_yellow += 1
-
-        extra_time = newly_yellow * 30 + newly_green * 15
-
-        if extra_time > 0 and self._timer:
-            self._timer._value += extra_time
-            print(f"[DEBUG] +{extra_time} seconds awarded! New time={self._timer._value}")
 
         # Check if the guess is correct
         if guess == target:
@@ -411,7 +455,7 @@ class Lcd(Frame):
             highlightthickness=2,
             highlightbackground="#00ff00",
             width=500,
-            height=270
+            height=400
         )
         # Position the frame in the grid
         self.wires_frame.grid(
@@ -434,28 +478,34 @@ class Lcd(Frame):
             font=("Courier New", 20)
         )
         #Text position
-        wires_row = Frame(self.wires_frame, bg="black")
-        self.wires_text.pack(pady=10)
-
-        # THIS WAS MISSING
-        wires_row.pack(pady=10)
+        self.wires_text.pack(pady=20)
+            # PC TEST: Button to submit wires pattern
+        self.wires_submit_btn = tkinter.Button(
+            self.wires_frame,
+            text="Submit Wires (PC)",
+            bg="black",
+            fg="#00ff00",
+            font=("Courier New", 14),
+            command=self.wires_handle_submit
+       )
+        self.wires_submit_btn.pack(pady=10)
 
 
         # Indicators for the 5 wires
         self.wire_indicators = []
         for i in range(5):
             box = Label(
-                wires_row,
+                self.wires_frame,
                 text=f"Wire {i+1}",
                 fg="#00ff00",
                 bg="gray20",
-                width=10,
+                width=12,
                 height=2,
                 relief="solid",
                 bd=2,
                 font=("Courier New", 14)
             )
-            box.grid(row=0, column=i, padx=8)  # horizontal layout
+            box.pack(pady=5)
             self.wire_indicators.append(box)
 
         # Internal variables
@@ -464,41 +514,6 @@ class Lcd(Frame):
         self.wires_start_round(0)
         # Start updating
         self.update_wire_indicators()
-    def get_wires_hint(self, pattern):
-        HINTS = {
-            # --- Round 1 (2 correct wires) ---
-            "11000": "Two wires resonate together in the west.",
-            "10100": "A spark jumps between the first and third wires.",
-            "10010": "One wire hides at the start, one near the middle.",
-            "10001": "The truth lies at the very beginning… and the very end.",
-            "01100": "The second and third wires hum side-by-side.",
-            "01010": "Two isolated pulses: one near the start, one in the middle.",
-            "01001": "A whisper between the second wire… and the last.",
-            "00110": "Two neighboring wires at the center glow faintly.",
-            "00101": "The third and fifth wires respond to the current.",
-            "00011": "The last two wires resonate together.",
-
-            # --- Round 2 (3 correct wires) ---
-            "11100": "The first three wires pulse strongly.",
-            "11010": "Three sparks: a pair at the start, and one in the middle.",
-            "11001": "A pair at the beginning… and one far at the end.",
-            "10110": "Scattered currents: wires 1, 3, and 4 are alive.",
-            "10101": "The odd wires (1,3,5) carry the current.",
-            "10011": "Wires 1, 4, and 5 hum with hidden energy.",
-            "01110": "The second, third, and fourth wires glow in unison.",
-            "01101": "Wires 2, 3, and 5 whisper together.",
-            "01011": "The second wire stands alone while 4 and 5 resonate.",
-            "00111": "The last three wires vibrate with power.",
-
-            # --- Round 3 (4 correct wires) ---
-            "11110": "Only the final wire is silent.",
-            "11101": "Only the fourth wire fails to hum.",
-            "11011": "Only the third wire remains quiet.",
-            "10111": "Only the second wire is powerless.",
-            "01111": "Only the first wire refuses to glow.",
-        }
-
-        return HINTS.get(pattern, "The currents are chaotic… no hint available.")
 
     # Begin a specific wires round
     def wires_start_round(self, round_index):
@@ -519,25 +534,17 @@ class Lcd(Frame):
         pattern_list = ["1"] * needed + ["0"] * (5 - needed)
         random.shuffle(pattern_list)
         self.wires_target_pattern = "".join(pattern_list)
-        hint = self.get_wires_hint(self.wires_target_pattern)
-
 
         # Puts the answer for the Wires in the terminal for easier testing
         print(f"[DEBUG] Starting Round {round_index+1}, target = {self.wires_target_pattern}")
 
-
-
         # Update the text on screen
         self.wires_text.config(
             text=f"Round {round_index+1}/3\n\n"
-                f"{hint}\n\n"
                 f"The house whispers...\n"
                 f"\"\"\"{needed} conduits carry the hidden current...\"\"\"\n\n"
                 f"Attempt {self.current_attempt}/2"
         )
-
-
-
 
     # Handle submission of wires pattern
     def wires_handle_submit(self):
@@ -562,8 +569,6 @@ class Lcd(Frame):
             )
             return
         # Second incorrect submission, check if this was the last round
-        if round_number == 2:   # round 0, 1, 2 = 3 rounds
-            self.finish_wires_phase()
 
         # Checks if the user failed this round
         self.wires_round_results.append(False)
@@ -755,34 +760,6 @@ class Lcd(Frame):
             font=("Courier New", 18)
         )
         self.ritual_input_label.pack(pady=10)
-        # Frame for toggles + ritual button - jack
-        self.button_frame = Frame(self.ritual_frame, bg="black")
-        self.button_frame.pack(pady=20)
-        
-        #toggles - jack
-        self.toggle1 = tk.Checkbutton(self.button_frame, text="Toggle 1",
-                              variable=self.toggle1_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
-        self.toggle1.grid(row=0, column=0, padx=5)
-
-        self.toggle2 = tk.Checkbutton(self.button_frame, text="Toggle 2",
-                              variable=self.toggle2_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
-        self.toggle2.grid(row=0, column=1, padx=5)
-
-        self.toggle3 = tk.Checkbutton(self.button_frame, text="Toggle 3",
-                              variable=self.toggle3_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
-        self.toggle3.grid(row=0, column=2, padx=5)
-        
-        self.ritual_button = tk.Button(self.button_frame, text="Press Me")
-        self.ritual_button.grid(row=1, column=0, columnspan=3, pady=10)
-
-
-
 
         # Initialize internal variables for the ritual
         self.ritual_round = 0
@@ -790,20 +767,6 @@ class Lcd(Frame):
         self.ritual_sequence = []
         self.ritual_user_input = []
         self.after(800, self.ritual_begin_round)
-        self.toggle1_var = tk.BooleanVar()
-        self.toggle2_var = tk.BooleanVar()
-        self.toggle3_var = tk.BooleanVar()
-        
-
-    def update_button_color(self):
-        # Mix RGB based on toggle states
-        r = 255 if self.toggle1_var.get() else 0
-        g = 255 if self.toggle2_var.get() else 0
-        b = 255 if self.toggle3_var.get() else 0
-
-        color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
-        self.ritual_button.config(bg=color)
-
 
     def ritual_begin_round(self):
         """Begin a new ritual round with a generated sequence."""
@@ -845,7 +808,318 @@ class Lcd(Frame):
         # Flash for 700ms then blank
         self.after(700, lambda: self.ritual_sequence_label.config(text=""))
         self.after(1000, lambda: self.ritual_display_sequence(index + 1))
+        # -------------------------------
+    # QUIZ PHASE (multiple choice + math)
+    # -------------------------------
+        if self.ritual_round == 2:
+        # Finished all 3 ritual rounds
+            self.after(1500, self.start_quiz_phase)
 
+    def start_quiz_phase(self):
+        """Begin the spooky quiz phase."""
+        self.current_minigame = "quiz"
+
+        # Hide any previous phase frames if they exist
+        for attr in ("game_frame", "wires_frame", "wires_summary", "ritual_frame"):
+            try:
+                frame = getattr(self, attr, None)
+                if frame is not None:
+                    frame.grid_forget()
+            except:
+                pass
+
+        # Create quiz frame
+        self.quiz_frame = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00",
+            width=500,
+            height=400
+        )
+        self.quiz_frame.grid(
+            row=3,
+            column=0,
+            columnspan=3,
+            sticky="n",
+            padx=0,
+            pady=20
+        )
+        self.quiz_frame.grid_propagate(False)
+
+        # Title
+        Label(
+            self.quiz_frame,
+            text="FINAL QUIZ OF THE HAUNTED TERMINAL",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 20, "bold")
+        ).pack(pady=10)
+
+        # Question label
+        self.quiz_question_label = Label(
+            self.quiz_frame,
+            text="",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 16),
+            wraplength=480,
+            justify="left"
+        )
+        self.quiz_question_label.pack(pady=10)
+
+        # Choices label (for MC questions)
+        self.quiz_choices_label = Label(
+            self.quiz_frame,
+            text="",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 14),
+            justify="left"
+        )
+        self.quiz_choices_label.pack(pady=5)
+
+        # Instructions for lever mapping
+        self.quiz_lever_help = Label(
+            self.quiz_frame,
+            text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
+                 "Set one pattern, then press # to lock in.",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 12),
+            justify="left"
+        )
+        self.quiz_lever_help.pack(pady=5)
+
+        # Keypad entry display (for numeric answers & codes)
+        self.quiz_entry_label = Label(
+            self.quiz_frame,
+            text="Keypad: ",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 16)
+        )
+        self.quiz_entry_label.pack(pady=5)
+
+        # Status / feedback
+        self.quiz_status_label = Label(
+            self.quiz_frame,
+            text="Answer the questions to escape...",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 14)
+        )
+        self.quiz_status_label.pack(pady=10)
+
+        # Reset state and show first question
+        self.quiz_index = 0
+        self.quiz_keypad_buffer = ""
+        self.load_quiz_question()
+
+    def load_quiz_question(self):
+        """Display the current question and reset state."""
+        if self.quiz_index >= len(self.quiz_questions):
+            # All questions done – you win
+            self.quiz_status_label.config(text="You answered all questions. The house releases you...")
+            # You could call self.conclusion(success=True) here if you want:
+            # self.after(2000, lambda: self.conclusion(success=True))
+            return
+
+        q = self.quiz_questions[self.quiz_index]
+        self.quiz_mode = q["type"]
+        self.quiz_state = "awaiting_answer"
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+
+        self.quiz_question_label.config(text=f"Q{self.quiz_index + 1}: {q['prompt']}")
+
+        if q["type"] == "mc":
+            # Show choices A–D
+            choices_text = []
+            letters = ["A", "B", "C", "D"]
+            for i, choice in enumerate(q["choices"]):
+                choices_text.append(f"{letters[i]}) {choice}")
+            self.quiz_choices_label.config(text="\n".join(choices_text))
+            self.quiz_lever_help.config(
+                text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
+                     "Set one pattern, then press # to lock in."
+            )
+        else:
+            # Numeric question – no choices
+            self.quiz_choices_label.config(text="(Type your answer on the keypad, then press #.)")
+            self.quiz_lever_help.config(
+                text="Levers not used for this question.\n"
+                     "Use keypad digits, * to clear, # to submit."
+            )
+
+        self.quiz_status_label.config(text="Answer carefully... a wrong answer will anger the house.")
+
+    def quiz_type_digit(self, digit):
+        """Append a digit to the keypad buffer for numeric answers / codes."""
+        if self.current_minigame != "quiz":
+            return
+        if len(self.quiz_keypad_buffer) >= 8:
+            return
+        self.quiz_keypad_buffer += digit
+        self.quiz_entry_label.config(text=f"Keypad: {self.quiz_keypad_buffer}")
+
+    def quiz_backspace(self):
+        """Clear the keypad buffer (like reset)."""
+        if self.current_minigame != "quiz":
+            return
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+
+    def read_lever_choice(self):
+        """
+        Read the toggle levers and map to A/B/C/D.
+        We assume 4 toggle pins in self.component_toggles (left → right).
+        Pattern mapping:
+            1000 -> A
+            0100 -> B
+            0010 -> C
+            0001 -> D
+        """
+        if not hasattr(self, "component_toggles"):
+            # No hardware attached; you can later simulate if needed
+            return None
+
+        if RPi:
+            bits = []
+            for pin in self.component_toggles:
+                up = (pin.value is True)
+                bits.append("1" if up else "0")
+            pattern = "".join(bits)
+        else:
+            # On non-RPi systems, default no choice
+            pattern = "0000"
+
+        mapping = {
+            "1000": "A",
+            "0100": "B",
+            "0010": "C",
+            "0001": "D"
+        }
+        return mapping.get(pattern, None)
+
+    def quiz_handle_submit(self):
+        """Real quiz logic for # submit button."""
+        if self.current_minigame != "quiz":
+            return
+
+        q = self.quiz_questions[self.quiz_index]
+
+        # --------------------------
+        # MULTIPLE CHOICE QUESTIONS
+        # --------------------------
+        if q["type"] == "mc":
+
+        # Step 1 — if waiting for lever input
+            if self.quiz_state == "awaiting_answer":
+                lever_choice = self.read_lever_choice()
+
+                if lever_choice is None:
+                    self.quiz_status_label.config(text="No lever selected!")
+                    return
+
+                if lever_choice != q["correct_choice"]:
+                    self.quiz_wrong_answer()
+                    return
+
+            # Lever was correct → now require keypad code
+                self.quiz_state = "awaiting_code"
+                self.quiz_status_label.config(text="Correct lever! Enter the code then press #.")
+                return
+
+        # Step 2 — waiting for keypad code
+            elif self.quiz_state == "awaiting_code":
+                if self.quiz_keypad_buffer == q["code"]:
+                    # MC question fully correct
+                    self.quiz_index += 1
+                    self.quiz_status_label.config(text="Correct! Proceeding...")
+                    self.after(300, self.load_quiz_question)
+                else:
+                    self.quiz_wrong_answer()
+                return
+
+    # --------------------------
+    # NUMERIC QUESTIONS
+    # --------------------------
+        elif q["type"] == "numeric":
+            if not self.quiz_keypad_buffer.isdigit():
+                self.quiz_status_label.config(text="Enter a number!")
+                return
+
+            player_num = int(self.quiz_keypad_buffer)
+
+            if player_num == q["answer_number"]:
+                self.quiz_index += 1
+                self.quiz_status_label.config(text="Correct! Next question...")
+                self.after(300, self.load_quiz_question)
+            else:
+                self.quiz_wrong_answer()
+            return
+
+
+        
+    def quiz_wrong_answer(self):
+        """Apply time penalty + jump scare when the player is wrong."""
+        self.quiz_status_label.config(text="Wrong! The house SCREAMS at you!")
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+        # time penalty
+        self.quiz_time_penalty(self.quiz_penalty_seconds)
+        # spooky popup
+        self.show_jumpscare()
+
+    def quiz_time_penalty(self, seconds):
+        """Reduce the bomb timer when you miss a question."""
+        if self._timer is not None:
+            try:
+                self._timer._value = max(0, self._timer._value - seconds)
+            except Exception as e:
+                print("Could not reduce timer:", e)
+
+    def show_jumpscare(self):
+        """Quick scary popup; tries to use jumpscare.png if available."""
+        try:
+            js = Toplevel(self)
+            js.configure(bg="black")
+            js.overrideredirect(True)
+            js.attributes("-topmost", True)
+
+            parent = self.winfo_toplevel()
+            parent.update_idletasks()
+            # match main window size
+            try:
+                w = parent.winfo_width()
+                h = parent.winfo_height()
+                x = parent.winfo_rootx()
+                y = parent.winfo_rooty()
+                js.geometry(f"{w}x{h}+{x}+{y}")
+            except:
+                js.geometry("1100x700")
+
+            # Try to load scary image
+            try:
+                img = Image.open("jumpscare.png")
+                img = img.resize((w, h))
+                self.jumpscare_image = ImageTk.PhotoImage(img)
+                Label(js, image=self.jumpscare_image, bg="black").pack(fill="both", expand=True)
+            except Exception as e:
+                print("JUMPSCARE IMAGE FAILED:", e)
+                Label(
+                    js,
+                    text="BOO!",
+                    fg="red",
+                    bg="black",
+                    font=("Courier New", 80, "bold")
+                ).pack(expand=True, fill="both")
+
+            # Auto-close after ~1.2 seconds
+            js.after(1200, js.destroy)
+        except Exception as e:
+            print("Error showing jumpscare:", e)
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
@@ -969,7 +1243,6 @@ class Timer(PhaseThread):
         return f"{self._min}:{self._sec}"
 
 # the keypad phase
-# the keypad phase
 class Keypad(PhaseThread):
     def __init__(self, component, target, gui, name="Keypad"):
         super().__init__(name, component, target)
@@ -982,78 +1255,51 @@ class Keypad(PhaseThread):
         self._running = True
         while self._running:
             if self._component.pressed_keys:
-                # read the first pressed key from the hardware
                 try:
                     key = str(self._component.pressed_keys[0])
                 except:
                     key = ""
 
-                # wait until released (debounce)
+            # wait until released (debounce)
                 while self._component.pressed_keys:
                     sleep(0.1)
 
-                # ====================================================
-                # QUIZ PHASE: treat keypad like a normal numeric keypad
-                # ====================================================
-                if self.gui.current_minigame == "quiz":
-                    # digits 0–9 build up the answer/code
-                    if key.isdigit():
-                        self.gui.quiz_type_digit(key)
-                        # no need to go further for digits
-                        sleep(0.1)
-                        continue
-
-                    # '*' clears the current buffer
-                    if key == "*":
-                        self.gui.quiz_backspace()
-                        sleep(0.1)
-                        continue
-
-                    # '#' is handled below in the common "#" handler,
-                    # which already calls quiz_handle_submit() when
-                    # current_minigame == "quiz"
-                    # so we just let it fall through.
-
-                # ==========================================
-                # WORDLE / OTHER PHASES: original T9 behavior
-                # ==========================================
-                # ======= T9 LETTER KEYS (2–9) =======
-                if key in getattr(self.gui, "t9_map", {}):
+            # ======= T9 LETTER KEYS (2–9) =======
+                if key in self.gui.t9_map:
                     letters = self.gui.t9_map[key]
                     idx = self.gui.t9_state[key]
                     letter = letters[idx]
 
-                    # PREVIEW THE LETTER ON WORDLE TILE
+                # PREVIEW THE LETTER ON WORDLE TILE
                     self.gui.wordle_type_letter_preview(letter)
 
-                    # rotate for next press
+                # rotate for next press
                     self.gui.t9_state[key] = (idx + 1) % len(letters)
 
-                # ======= CONFIRM LETTER (1) =======
+            # ======= CONFIRM LETTER (1) =======
                 elif key == "1":
-                    # confirm the previewed letter in Wordle
                     self.gui.wordle_confirm_letter()
 
-                # ======= BACKSPACE (*) =======
+            # ======= BACKSPACE (*) =======
                 elif key == "*":
-                    # in non-quiz phases, '*' acts as backspace for Wordle
                     self.gui.wordle_backspace()
 
-                # ======= ENTER (#) =======
-                elif key == "#":
+            # ======= ENTER (#) =======
+                elif str(key) == "#":
                     try:
                         if self.gui.current_minigame == "wires":
                             self.gui.wires_handle_submit()
                         elif self.gui.current_minigame == "quiz":
-                            # this will check levers and/or keypad buffer
                             self.gui.quiz_handle_submit()
                         else:
-                            # default: submit current Wordle row
                             self.gui.wordle_submit_row()
                     except Exception as e:
                         print("Error in # handling:", e)
+                    continue
 
-                sleep(0.1)
+
+            sleep(0.1)
+
 
     # returns the keypad combination as a string
     def __str__(self):
@@ -1148,3 +1394,20 @@ class Toggles(PhaseThread):
         else:
             # TODO
             pass
+if __name__ == "__main__":
+    print("Starting spooky bomb GUI...")  # debug print so we know this runs
+
+    # Create the main Tkinter window
+    root = Tk()
+    root.title("Spooky Bomb")
+
+    # Create the LCD GUI
+    lcd = Lcd(root)
+
+    # Build the LCD interface (timer label, phase labels, Wordle grid, etc.)
+    lcd.setup()
+    
+    lcd.start_quiz_phase()
+
+    # Start Tkinter event loop (this actually opens the window)
+    root.mainloop()
