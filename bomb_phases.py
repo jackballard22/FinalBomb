@@ -755,45 +755,66 @@ class Lcd(Frame):
             font=("Courier New", 18)
         )
         self.ritual_input_label.pack(pady=10)
+
         # Frame for toggles + ritual button - jack
         self.button_frame = Frame(self.ritual_frame, bg="black")
         self.button_frame.pack(pady=20)
-        
-        #toggles - jack
-        self.toggle1 = tk.Checkbutton(self.button_frame, text="Toggle 1",
-                              variable=self.toggle1_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
+
+        # --- BooleanVars MUST come before Checkbuttons ---
+        self.toggle1_var = tk.BooleanVar(value=False)
+        self.toggle2_var = tk.BooleanVar(value=False)
+        self.toggle3_var = tk.BooleanVar(value=False)
+
+        # Toggles - jack
+        self.toggle1 = tk.Checkbutton(
+            self.button_frame,
+            text="Toggle 1",
+            variable=self.toggle1_var,
+            command=self.update_button_color,
+            bg="black",
+            fg="#00ff00",
+            selectcolor="black"
+        )
         self.toggle1.grid(row=0, column=0, padx=5)
 
-        self.toggle2 = tk.Checkbutton(self.button_frame, text="Toggle 2",
-                              variable=self.toggle2_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
+        self.toggle2 = tk.Checkbutton(
+            self.button_frame,
+            text="Toggle 2",
+            variable=self.toggle2_var,
+            command=self.update_button_color,
+            bg="black",
+            fg="#00ff00",
+            selectcolor="black"
+        )
         self.toggle2.grid(row=0, column=1, padx=5)
 
-        self.toggle3 = tk.Checkbutton(self.button_frame, text="Toggle 3",
-                              variable=self.toggle3_var,
-                              command=self.update_button_color,
-                              bg="black", fg="#00ff00", selectcolor="black")
+        self.toggle3 = tk.Checkbutton(
+            self.button_frame,
+            text="Toggle 3",
+            variable=self.toggle3_var,
+            command=self.update_button_color,
+            bg="black",
+            fg="#00ff00",
+            selectcolor="black"
+        )
         self.toggle3.grid(row=0, column=2, padx=5)
-        
-        self.ritual_button = tk.Button(self.button_frame, text="Press Me")
+
+        # Ritual button – this is what the player presses to "submit" each color
+        self.ritual_button = tk.Button(
+            self.button_frame,
+            text="Press Me",
+            command=self.ritual_button_press
+        )
         self.ritual_button.grid(row=1, column=0, columnspan=3, pady=10)
 
-
-
-
         # Initialize internal variables for the ritual
-        self.ritual_round = 0
-        self.ritual_attempts = 2
-        self.ritual_sequence = []
-        self.ritual_user_input = []
+        self.ritual_round = 0  # 0,1,2  (3 rounds)
+        self.ritual_attempts = 2  # total failed attempts allowed
+        self.ritual_sequence = []  # e.g. ["RED","BLUE"]
+        self.ritual_user_input = []  # what player enters
+
+        # Start first round after a short delay
         self.after(800, self.ritual_begin_round)
-        self.toggle1_var = tk.BooleanVar()
-        self.toggle2_var = tk.BooleanVar()
-        self.toggle3_var = tk.BooleanVar()
-        
 
     def update_button_color(self):
         # Mix RGB based on toggle states
@@ -804,12 +825,15 @@ class Lcd(Frame):
         color = f'#{r:02x}{g:02x}{b:02x}'  # convert to hex string
         self.ritual_button.config(bg=color)
 
-
     def ritual_begin_round(self):
         """Begin a new ritual round with a generated sequence."""
 
-        # Increase sequence length each round
-        lengths = [2, 3, 4]   # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
+        lengths = [2, 3, 4]  # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
+
+        # Safety check
+        if self.ritual_round >= len(lengths):
+            return
+
         seq_length = lengths[self.ritual_round]
 
         colors = ["RED", "GREEN", "BLUE"]
@@ -826,9 +850,7 @@ class Lcd(Frame):
         # Begin sequence display
         self.after(1000, lambda: self.ritual_display_sequence(0))
 
-
-        # Placeholder until next step
-        print("[DEBUG] Ritual phase frame loaded.")
+        print(f"[DEBUG] Ritual sequence (round {self.ritual_round + 1}): {self.ritual_sequence}")
 
     def ritual_display_sequence(self, index):
         """Shows color sequence one at a time."""
@@ -846,6 +868,86 @@ class Lcd(Frame):
         self.after(700, lambda: self.ritual_sequence_label.config(text=""))
         self.after(1000, lambda: self.ritual_display_sequence(index + 1))
 
+    def ritual_button_press(self):
+        """
+        Called when the GUI ritual button is pressed.
+        The current toggle combination chooses RED, GREEN, or BLUE.
+        """
+
+        # Determine which color the toggles represent
+        r_on = self.toggle1_var.get()
+        g_on = self.toggle2_var.get()
+        b_on = self.toggle3_var.get()
+
+        # Only allow exactly one toggle ON at a time
+        color = None
+        if r_on and not g_on and not b_on:
+            color = "RED"
+        elif g_on and not r_on and not b_on:
+            color = "GREEN"
+        elif b_on and not r_on and not g_on:
+            color = "BLUE"
+
+        if color is None:
+            self.ritual_input_label.config(
+                text="Set exactly ONE toggle ON to choose RED, GREEN, or BLUE."
+            )
+            return
+
+        # Record the player's choice
+        self.ritual_user_input.append(color)
+        self.ritual_input_label.config(
+            text=f"Your sigils: {' - '.join(self.ritual_user_input)}"
+        )
+
+        # Once the player has entered the full sequence, check it
+        if len(self.ritual_user_input) == len(self.ritual_sequence):
+            self.ritual_check_sequence()
+
+    def ritual_check_sequence(self):
+        """Compare player input with target sequence and handle success/failure."""
+        if self.ritual_user_input == self.ritual_sequence:
+            # SUCCESS
+            self.ritual_text.config(
+                text="The sigils resonate in harmony.\nThe ritual is successful!"
+            )
+            self.ritual_round += 1
+
+            # Completed all 3 rounds (0,1,2)
+            if self.ritual_round == 3:
+                self.ritual_input_label.config(
+                    text="The ritual is complete. The house grows quiet..."
+                )
+                # Move to quiz phase
+                self.after(1500, self.start_quiz_phase)
+            else:
+                # Start next ritual round
+                self.after(1500, self.ritual_begin_round)
+
+        else:
+            # FAILURE
+            self.ritual_attempts -= 1
+            if self.ritual_attempts > 0:
+                # Allow another try at the SAME round
+                self.ritual_text.config(
+                    text="The sigils flare angrily.\nYou may attempt the ritual once more..."
+                )
+                self.ritual_user_input = []
+                self.ritual_input_label.config(text="Awaiting your input...")
+                # Re-show the same sequence
+                self.after(1500, lambda: self.ritual_display_sequence(0))
+            else:
+                # Out of attempts: ritual phase failed
+                self.ritual_text.config(
+                    text="The ritual collapses!\nThe spirits are displeased..."
+                )
+                try:
+                    self.addStrike()
+                except Exception as e:
+                    print("[DEBUG] addStrike not available:", e)
+
+                # Move on to the quiz phase even on failure
+                self.after(1500, self.start_quiz_phase)
 
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
