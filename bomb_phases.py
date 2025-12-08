@@ -1205,7 +1205,7 @@ class Lcd(Frame):
         if RPi:
             bits = []
             for pin in self.component_toggles:
-                up = (pin.value is True)
+                up = bool(pin.value)
                 bits.append("1" if up else "0")
             pattern = "".join(bits)
         else:
@@ -1477,43 +1477,46 @@ class Keypad(PhaseThread):
                 except:
                     key = ""
 
-            # wait until released (debounce)
-                while self._component.pressed_keys:
-                    sleep(0.1)
-
-            # ======= T9 LETTER KEYS (2–9) =======
-                if key in self.gui.t9_map:
-                    letters = self.gui.t9_map[key]
-                    idx = self.gui.t9_state[key]
-                    letter = letters[idx]
-
-                # PREVIEW THE LETTER ON WORDLE TILE
-                    self.gui.wordle_type_letter_preview(letter)
-
-                # rotate for next press
-                    self.gui.t9_state[key] = (idx + 1) % len(letters)
-
-            # ======= CONFIRM LETTER (1) =======
-                elif key == "1":
-                    self.gui.wordle_confirm_letter()
-
-            # ======= BACKSPACE (*) =======
-                elif key == "*":
-                    self.gui.wordle_backspace()
-
-            # ======= ENTER (#) =======
-                elif str(key) == "#":
+                # ==============================
+                # 1. FIRST PRIORITY: ENTER (#)
+                # ==============================
+                if key == "#":
                     try:
                         if self.gui.current_minigame == "quiz":
                             self.gui.quiz_handle_submit()
                         elif self.gui.current_minigame == "wires":
-                            self.gui.wires_handle_submit() 
+                            self.gui.wires_handle_submit()
                         else:
                             self.gui.wordle_submit_row()
                     except Exception as e:
                         print("Error in # handling:", e)
+
+                    # Debounce
+                    while self._component.pressed_keys:
+                        sleep(0.1)
                     continue
 
+                # ==============================
+                # 2. WORDLE ONLY (T9 keys)
+                # ==============================
+                if self.gui.current_minigame == "wordle":
+
+                    if key in self.gui.t9_map:
+                        letters = self.gui.t9_map[key]
+                        idx = self.gui.t9_state[key]
+                        letter = letters[idx]
+                        self.gui.wordle_type_letter_preview(letter)
+                        self.gui.t9_state[key] = (idx + 1) % len(letters)
+
+                    elif key == "1":
+                        self.gui.wordle_confirm_letter()
+
+                    elif key == "*":
+                        self.gui.wordle_backspace()
+
+                # Debounce for all other keys
+                while self._component.pressed_keys:
+                    sleep(0.1)
 
             sleep(0.1)
 
