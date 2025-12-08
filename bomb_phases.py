@@ -40,7 +40,7 @@ class Lcd(Frame):
         from bomb_configs import component_wires
         self.component_wires = component_wires
 
-        # QUIZ STATE VARIABLES
+        # Quiz questions for the Quiz Phase
         QUIZ_QUESTIONS = [
             {
                 "prompt": "How many bits are in one byte?",
@@ -79,8 +79,8 @@ class Lcd(Frame):
                 "type": "mc",
             },
         ]
+        # store the quiz questions
         self.quiz_questions = QUIZ_QUESTIONS
-
 
         self.quiz_index = 0
         self.quiz_mode = None
@@ -157,7 +157,8 @@ class Lcd(Frame):
             "9": "WXY"
         }
 
-        self.t9_state = {key: 0 for key in self.t9_map}   # rotation counters
+        #State of T9 key presses (to track cycling through letters)
+        self.t9_state = {key: 0 for key in self.t9_map}  
 
 
         #Timer Label
@@ -239,6 +240,7 @@ class Lcd(Frame):
         # Create the grid of labels for Wordle
         self.wordle_labels = []
 
+        # Create labels for each cell in the Wordle grid
         for row in range(MAX_ATTEMPTS):
             row_labels = []
             for col in range(WORD_LENGTH):
@@ -262,6 +264,7 @@ class Lcd(Frame):
         self.current_row = 0
         self.current_col = 0
 
+    # Function to add a strike to the bomb
     def addStrike(self):
             """
             Decrease the remaining strikes, update the label,
@@ -344,8 +347,10 @@ class Lcd(Frame):
             else:
                 self.wordle_labels[self.current_row][col]["bg"] = "#3a3a3c"  
 
+        # Award extra time for newly discovered correct letters
         guess_letters = set()
 
+        # Check which letters are correct (green or yellow)
         for col in range(5):
             letter = guess[col]
             is_green = (letter == target[col])
@@ -354,12 +359,14 @@ class Lcd(Frame):
             if is_green or is_yellow:
                 guess_letters.add(letter)
         
+        # Determine newly rewarded letters
         new_correct_letters = guess_letters - self.wordle_rewarded_letters
         self.wordle_rewarded_letters.update(new_correct_letters)
 
         newly_green = 0
         newly_yellow = 0
 
+        # Count how many newly green/yellow letters
         for col in range(5):
             letter = guess[col]
             if letter in new_correct_letters:
@@ -368,8 +375,10 @@ class Lcd(Frame):
                 elif letter in target:
                     newly_yellow += 1
 
-        extra_time = newly_yellow * 30 + newly_green * 15
+        # Calculate extra time
+        extra_time = newly_yellow * 15 + newly_green * 30
 
+        # Add extra time to the timer
         if extra_time > 0 and self._timer:
             self._timer._value += extra_time
             print(f"[DEBUG] +{extra_time} seconds awarded! New time={self._timer._value}")
@@ -438,6 +447,7 @@ class Lcd(Frame):
 
         self.start_wires_phase()
 
+    # Wordle lose handling
     def wordle_lose(self):
 
         # Tell bomb this phase is failed
@@ -539,9 +549,10 @@ class Lcd(Frame):
         self.wires_start_round(0)
         # Start updating
         self.update_wire_indicators()
+    # Get hint text based on wires pattern
     def get_wires_hint(self, pattern):
         HINTS = {
-            # --- Round 1 (2 correct wires) ---
+            #Hints for 2 wire options
             "11000": "Two wires resonate together in the west.",
             "10100": "A spark jumps between the first and third wires.",
             "10010": "One wire hides at the start, one near the middle.",
@@ -553,7 +564,7 @@ class Lcd(Frame):
             "00101": "The third and fifth wires respond to the current.",
             "00011": "The last two wires resonate together.",
 
-            # --- Round 2 (3 correct wires) ---
+            #Hints for 3 wire options
             "11100": "The first three wires pulse strongly.",
             "11010": "Three sparks: a pair at the start, and one in the middle.",
             "11001": "A pair at the beginning… and one far at the end.",
@@ -565,7 +576,7 @@ class Lcd(Frame):
             "01011": "The second wire stands alone while 4 and 5 resonate.",
             "00111": "The last three wires vibrate with power.",
 
-            # --- Round 3 (4 correct wires) ---
+            # Hints for 4 wire options
             "11110": "Only the final wire is silent.",
             "11101": "Only the fourth wire fails to hum.",
             "11011": "Only the third wire remains quiet.",
@@ -766,8 +777,7 @@ class Lcd(Frame):
 
     # -----------------------------------------
 
-    #Beginning of Button Phase Methods
-        #Beginning of Button Phase Methods
+    #Beginning of Button Ritual Phase Methods
     def start_button_phase(self):
         self.current_minigame = "button_ritual"
 
@@ -846,11 +856,6 @@ class Lcd(Frame):
         self.button_frame = Frame(self.ritual_frame, bg="black")
         self.button_frame.pack(pady=20)
 
-        
-                # ------- Toggle Checkbuttons --------
-       
-
-
         # Initialize internal variables for the ritual
         self.ritual_round = 0          # 0,1,2  (3 rounds)
         self.ritual_attempts = 2       # total failed attempts allowed
@@ -862,26 +867,24 @@ class Lcd(Frame):
         self.after(100, self.ritual_poll_toggles)
 
 
-        
-
-    def update_button_color(self):
-        pass
-
-
+    # Prepare the ritual screen and start the first round
     def ritual_begin_round(self):
-        """Begin a new ritual round with a generated sequence."""
 
-        lengths = [2, 3, 4]   # Round 1 → 2 colors, Round 2 → 3, Round 3 → 4
+        # Define sequence lengths per round
+        lengths = [2, 3, 4]  
 
         # Safety check
         if self.ritual_round >= len(lengths):
             return
 
+        # Generate new random sequence for this round
         seq_length = lengths[self.ritual_round]
 
+        # Randomly choose colors
         colors = ["RED", "GREEN", "BLUE"]
         self.ritual_sequence = [choice(colors) for _ in range(seq_length)]
 
+        # Update ritual text
         self.ritual_text.config(
             text=f"Ritual Round {self.ritual_round + 1}\nFocus on the sigils..."
         )
@@ -893,15 +896,18 @@ class Lcd(Frame):
         # Begin sequence display
         self.after(1000, lambda: self.ritual_display_sequence(0))
 
+        # Debug output
         print(f"[DEBUG] Ritual sequence (round {self.ritual_round+1}): {self.ritual_sequence}")
 
+    # Prepare the ritual screen
     def ritual_display_sequence(self, index):
-        """Shows color sequence one at a time."""
+        # Recursive display of the ritual sequence
         if index >= len(self.ritual_sequence):
             # Done showing sequence
             self.ritual_sequence_label.config(text="Now repeat the sigils.")
             return
-
+        
+        # Show the current color
         color = self.ritual_sequence[index]
 
         # Display the color text on screen
@@ -911,8 +917,10 @@ class Lcd(Frame):
         self.after(700, lambda: self.ritual_sequence_label.config(text=""))
         self.after(1000, lambda: self.ritual_display_sequence(index + 1))
 
+    # Handle ritual button press
     def ritual_button_press(self):
 
+        # Read real hardware toggle states
         if RPi:
             t_states = [t.value for t in self.toggles]
         else:
@@ -943,10 +951,11 @@ class Lcd(Frame):
         if len(self.ritual_user_input) == len(self.ritual_sequence):
             self.ritual_check_sequence()
 
-
+    # Check the player's ritual input against the target sequence
     def ritual_check_sequence(self):
-        """Compare player input with target sequence and handle success/failure."""
+        # Compare sequences
         if self.ritual_user_input == self.ritual_sequence:
+            # Correct sequence
             if self._timer:
                 self._timer._value += 20
                 print(f"[DEBUG] +20 seconds awarded! New time={self._timer._value}")
@@ -995,12 +1004,14 @@ class Lcd(Frame):
                 # Move on to the quiz phase even on failure
                 self.after(1500, self.start_quiz_phase)
 
+    # Poll toggles to update LED color
     def ritual_poll_toggles(self):
         self.ritual_update_led()
         # Keep checking every 100 ms
         self.after(100, self.ritual_poll_toggles)
+    
+    # Update the ritual button LED based on toggle states
     def ritual_update_led(self):
-        """Sets the pushbutton LED color based on current toggle state."""
         if not RPi:
             return  # ignore on laptop
 
@@ -1036,9 +1047,8 @@ class Lcd(Frame):
             g_pin.value = False
             b_pin.value = False
 
-
+    # Prepare the ritual screen before starting the round, to warn the player to pay attention
     def ritual_prepare_screen(self):
-        """Shows a warning screen before the ritual sequence starts."""
         self.ritual_sequence_label.config(text="")
         self.ritual_input_label.config(text="")
 
@@ -1046,6 +1056,7 @@ class Lcd(Frame):
 
         countdown = ["3", "2", "1"]
 
+        # Countdown before starting the ritual round
         def do_count(i):
             if i < len(countdown):
                 self.ritual_sequence_label.config(text=countdown[i])
@@ -1060,8 +1071,8 @@ class Lcd(Frame):
     # -----------------------------------------
     # Beginning of Quiz Phase Methods
 
+    # Start the Quiz Phase
     def start_quiz_phase(self):
-        """Begin the spooky quiz phase."""
         self.current_minigame = "quiz"
 
         # Hide any previous phase frames if they exist
@@ -1082,6 +1093,7 @@ class Lcd(Frame):
             width=500,
             height=400
         )
+        # Position the frame in the grid
         self.quiz_frame.grid(
             row=3,
             column=0,
@@ -1090,6 +1102,7 @@ class Lcd(Frame):
             padx=0,
             pady=20
         )
+        # Prevent frame from resizing to fit contents
         self.quiz_frame.grid_propagate(False)
 
         # Title
@@ -1162,9 +1175,8 @@ class Lcd(Frame):
         self.load_quiz_question()
         self.after(100, lambda: self.quiz_poll_toggles())
 
-
+    # Load the current quiz question
     def load_quiz_question(self):
-        """Display the current question and reset state."""
         if self.quiz_index >= len(self.quiz_questions):
             # All questions done – you win
             self.quiz_status_label.config(text="You answered all questions. The house releases you...")
@@ -1192,8 +1204,8 @@ class Lcd(Frame):
 
         self.quiz_status_label.config(text="Answer carefully... a wrong answer will anger the house.")
 
+    # Poll toggles to update selection display
     def quiz_poll_toggles(self):
-        """Live updates the toggle selection display."""
         if self.current_minigame != "quiz":
             return
 
@@ -1207,9 +1219,8 @@ class Lcd(Frame):
         # Keep polling
         self.after(100, lambda: self.quiz_poll_toggles())
 
-
+    # Read which lever is selected
     def read_lever_choice(self):
-        """Return A/B/C/D ONLY if exactly one toggle is UP."""
         if not hasattr(self, "toggles"):
             return None
 
@@ -1229,21 +1240,21 @@ class Lcd(Frame):
         idx = on[0]
         return ["A", "B", "C", "D"][idx]
 
-
+    # Handle quiz submission
     def quiz_handle_submit(self):
-        """Lever-only quiz."""
         if self.current_minigame != "quiz":
             return
 
         q = self.quiz_questions[self.quiz_index]
 
-        # Only MC mode exists now
         lever_choice = self.read_lever_choice()
 
+        # No lever selected
         if lever_choice is None:
             self.quiz_status_label.config(text="No lever selected!")
             return
-
+        
+        # Check answer
         if lever_choice == q["correct_choice"]:
             self.quiz_status_label.config(text="Correct!")
 
@@ -1259,31 +1270,32 @@ class Lcd(Frame):
         else:
             self.quiz_wrong_answer()
 
-
+    # Handle wrong answer
     def quiz_wrong_answer(self):
-        """Apply time penalty + jump scare when the player is wrong."""
         self.quiz_status_label.config(text="Wrong! The house SCREAMS at you!")
         # time penalty
         self.quiz_time_penalty(self.quiz_penalty_seconds)
         # spooky popup
         self.show_jumpscare()
 
+    # Reduce timer on wrong answer
     def quiz_time_penalty(self, seconds):
-        """Reduce the bomb timer when you miss a question."""
         if self._timer is not None:
             try:
                 self._timer._value = max(0, self._timer._value - seconds)
             except Exception as e:
                 print("Could not reduce timer:", e)
 
+    # Display jumpscare popup
     def show_jumpscare(self):
-        """Quick scary popup; tries to use jumpscare.png if available."""
+        # Create a fullscreen top-level window
         try:
             js = Toplevel(self)
             js.configure(bg="black")
             js.overrideredirect(True)
             js.attributes("-topmost", True)
 
+            # Get main window size and position
             parent = self.winfo_toplevel()
             parent.update_idletasks()
             # match main window size
@@ -1312,14 +1324,14 @@ class Lcd(Frame):
                     font=("Courier New", 80, "bold")
                 ).pack(expand=True, fill="both")
 
-            # Auto-close after ~1.2 seconds
+            # Auto-close after 1.2 seconds
             js.after(1200, js.destroy)
         except Exception as e:
             print("Error showing jumpscare:", e)
     # lets us pause/unpause the timer (7-segment display)
 
+    # End the game successfully
     def end_game_success(self):
-        """Called when all quiz questions are answered correctly."""
         # Hide the quiz frame
         try:
             self.quiz_frame.grid_forget()
