@@ -40,32 +40,48 @@ class Lcd(Frame):
         self.component_wires = component_wires
 
         # QUIZ STATE VARIABLES
-        self.quiz_questions = [
+        QUIZ_QUESTIONS = [
             {
+                "prompt": "How many bits are in one byte?",
+                "choices": ["4", "8", "16", "32"],
+                "correct_choice": "B",     # 8
                 "type": "mc",
-                "prompt": "Which ghost is said to guard the cemetery gates?",
-                "choices": ["The Pale Watcher", "The Crimson Bride", "The Hollow King", "The Wraithling"],
-                "correct_choice": "A",
-                "code": "1234"
             },
             {
-                "type": "numeric",
-                "prompt": "How many skulls are carved above the manor door?",
-                "answer_number": 13
+                "prompt": "What is 6 × 7?",
+                "choices": ["36", "40", "42", "48"],
+                "correct_choice": "C",     # 42
+                "type": "mc",
             },
             {
-                "type": "mc",
-                "prompt": "Which sigil repels the spirits?",
-                "choices": ["Vexus", "Mor'thal", "Eldrin", "Saros"],
+                "prompt": "What is the time complexity of binary search on a sorted list?",
+                "choices": ["O(1)", "O(n)", "O(log n)", "O(n^2)"],
                 "correct_choice": "C",
-                "code": "7777"
-            }
+                "type": "mc",
+            },
+            {
+                "prompt": "The haunted clock chimes 3 times, then 4 times, repeating twice. How many total chimes?",
+                "choices": ["6", "7", "14", "28"],
+                "correct_choice": "C",     # 14
+                "type": "mc",
+            },
+            {
+                "prompt": "In Python, which of these values is a boolean?",
+                "choices": ["\"True\"", "1", "True", "\"False\""],
+                "correct_choice": "C",     # the actual boolean literal
+                "type": "mc",
+            },
+            {
+                "prompt": "You are in a hallway with 2 left doors and 3 right doors. Each door hides 5 ghosts. How many ghosts total?",
+                "choices": ["5", "15", "20", "25"],
+                "correct_choice": "D",     # 25
+                "type": "mc",
+            },
         ]
 
         self.quiz_index = 0
         self.quiz_mode = None
         self.quiz_state = None
-        self.quiz_keypad_buffer = ""
         self.quiz_penalty_seconds = 15
 
 
@@ -1092,15 +1108,6 @@ class Lcd(Frame):
         self.quiz_toggle_label.pack(pady=5)
 
 
-        # Keypad entry display (for numeric answers & codes)
-        self.quiz_entry_label = Label(
-            self.quiz_frame,
-            text="Keypad: ",
-            fg="#00ff00",
-            bg="black",
-            font=("Courier New", 16)
-        )
-        self.quiz_entry_label.pack(pady=5)
 
         # Status / feedback
         self.quiz_status_label = Label(
@@ -1114,9 +1121,8 @@ class Lcd(Frame):
 
         # Reset state and show first question
         self.quiz_index = 0
-        self.quiz_keypad_buffer = ""
         self.load_quiz_question()
-        self.after(100, self.quiz_poll_toggles)
+        self.after(100, lambda: self.quiz_poll_toggles())
 
 
     def load_quiz_question(self):
@@ -1131,8 +1137,6 @@ class Lcd(Frame):
         q = self.quiz_questions[self.quiz_index]
         self.quiz_mode = q["type"]
         self.quiz_state = "awaiting_answer"
-        self.quiz_keypad_buffer = ""
-        self.quiz_entry_label.config(text="Keypad: ")
 
         self.quiz_question_label.config(text=f"Q{self.quiz_index + 1}: {q['prompt']}")
 
@@ -1146,13 +1150,6 @@ class Lcd(Frame):
             self.quiz_lever_help.config(
                 text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
                      "Set one pattern, then press # to lock in."
-            )
-        else:
-            # Numeric question – no choices
-            self.quiz_choices_label.config(text="(Type your answer on the keypad, then press #.)")
-            self.quiz_lever_help.config(
-                text="Levers not used for this question.\n"
-                     "Use keypad digits, * to clear, # to submit."
             )
 
         self.quiz_status_label.config(text="Answer carefully... a wrong answer will anger the house.")
@@ -1170,119 +1167,54 @@ class Lcd(Frame):
             self.quiz_toggle_label.config(text=f"Selected: {choice}")
 
         # Keep polling
-        self.after(100, self.quiz_poll_toggles)
+        self.after(100, lambda: self.quiz_poll_toggles())
 
-    def quiz_type_digit(self, digit):
-        """Append a digit to the keypad buffer for numeric answers / codes."""
-        if self.current_minigame != "quiz":
-            return
-        if len(self.quiz_keypad_buffer) >= 8:
-            return
-        self.quiz_keypad_buffer += digit
-        self.quiz_entry_label.config(text=f"Keypad: {self.quiz_keypad_buffer}")
-
-    def quiz_backspace(self):
-        """Clear the keypad buffer (like reset)."""
-        if self.current_minigame != "quiz":
-            return
-        self.quiz_keypad_buffer = ""
-        self.quiz_entry_label.config(text="Keypad: ")
 
     def read_lever_choice(self):
-        """
-        Read the toggle levers and map to A/B/C/D.
-        We assume 4 toggle pins in self.component_toggles (left → right).
-        Pattern mapping:
-            1000 -> A
-            0100 -> B
-            0010 -> C
-            0001 -> D
-        """
-        if not hasattr(self, "component_toggles"):
-            # No hardware attached; you can later simulate if needed
+        """Return A/B/C/D ONLY if exactly one toggle is UP."""
+        if not hasattr(self, "toggles"):
             return None
-
+        
         if RPi:
-            bits = []
-            for pin in self.component_toggles:
-                up = bool(pin.value)
-                bits.append("1" if up else "0")
-            pattern = "".join(bits)
+            states = [bool(pin.value) for pin in self.toggles]  # True = UP
         else:
-            # On non-RPi systems, default no choice
-            pattern = "0000"
+            states = [False, False, False, False]
 
-        mapping = {
-            "1000": "A",
-            "0100": "B",
-            "0010": "C",
-            "0001": "D"
-        }
-        return mapping.get(pattern, None)
+        # Identify which toggles are UP
+        on = [i for i, state in enumerate(states) if state is True]
+
+        if len(on) != 1:
+            return None  # GUI will show "None"
+
+        idx = on[0]
+        return ["A", "B", "C", "D"][idx]
+
 
     def quiz_handle_submit(self):
-        """Real quiz logic for # submit button."""
+        """Lever-only quiz."""
         if self.current_minigame != "quiz":
             return
 
         q = self.quiz_questions[self.quiz_index]
 
-        # --------------------------
-        # MULTIPLE CHOICE QUESTIONS
-        # --------------------------
-        if q["type"] == "mc":
+        # Only MC mode exists now
+        lever_choice = self.read_lever_choice()
 
-            # Step 1 — if waiting for lever input
-            if self.quiz_state == "awaiting_answer":
-                lever_choice = self.read_lever_choice()
-
-                if lever_choice is None:
-                    self.quiz_status_label.config(text="No lever selected!")
-                    return
-
-                if lever_choice != q["correct_choice"]:
-                    self.quiz_wrong_answer()
-                    return
-
-                # Lever was correct → now require keypad code
-                self.quiz_state = "awaiting_code"
-                self.quiz_status_label.config(text="Correct lever! Enter the code then press #.")
-                return
-
-            # Step 2 — waiting for keypad code
-            elif self.quiz_state == "awaiting_code":
-                if self.quiz_keypad_buffer == q["code"]:
-                    # MC question fully correct
-                    self.quiz_index += 1
-                    self.quiz_status_label.config(text="Correct! Proceeding...")
-                    self.after(300, self.load_quiz_question)
-                else:
-                    self.quiz_wrong_answer()
-                return
-
-        # --------------------------
-        # NUMERIC QUESTIONS
-        # --------------------------
-        elif q["type"] == "numeric":
-            if not self.quiz_keypad_buffer.isdigit():
-                self.quiz_status_label.config(text="Enter a number!")
-                return
-
-            player_num = int(self.quiz_keypad_buffer)
-
-            if player_num == q["answer_number"]:
-                self.quiz_index += 1
-                self.quiz_status_label.config(text="Correct! Next question...")
-                self.after(300, self.load_quiz_question)
-            else:
-                self.quiz_wrong_answer()
+        if lever_choice is None:
+            self.quiz_status_label.config(text="No lever selected!")
             return
+
+        if lever_choice == q["correct_choice"]:
+            self.quiz_status_label.config(text="Correct!")
+            self.quiz_index += 1
+            self.after(300, self.load_quiz_question)
+        else:
+            self.quiz_wrong_answer()
+
 
     def quiz_wrong_answer(self):
         """Apply time penalty + jump scare when the player is wrong."""
         self.quiz_status_label.config(text="Wrong! The house SCREAMS at you!")
-        self.quiz_keypad_buffer = ""
-        self.quiz_entry_label.config(text="Keypad: ")
         # time penalty
         self.quiz_time_penalty(self.quiz_penalty_seconds)
         # spooky popup
