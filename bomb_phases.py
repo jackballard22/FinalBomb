@@ -78,6 +78,8 @@ class Lcd(Frame):
                 "type": "mc",
             },
         ]
+        self.quiz_questions = QUIZ_QUESTIONS
+
 
         self.quiz_index = 0
         self.quiz_mode = None
@@ -1174,17 +1176,19 @@ class Lcd(Frame):
         """Return A/B/C/D ONLY if exactly one toggle is UP."""
         if not hasattr(self, "toggles"):
             return None
-        
+
         if RPi:
-            states = [bool(pin.value) for pin in self.toggles]  # True = UP
+            # Important: use raw pin.value, NOT bool(pin.value)
+            states = [t.value for t in self.toggles]
         else:
             states = [False, False, False, False]
 
         # Identify which toggles are UP
         on = [i for i, state in enumerate(states) if state is True]
 
+        # Only valid if exactly one toggle is up
         if len(on) != 1:
-            return None  # GUI will show "None"
+            return None
 
         idx = on[0]
         return ["A", "B", "C", "D"][idx]
