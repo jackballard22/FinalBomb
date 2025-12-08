@@ -29,6 +29,7 @@ WORDLE_WORDS = [
 ]
 
 
+
 # the LCD display GUI
 class Lcd(Frame):
     def __init__(self, window):
@@ -37,6 +38,35 @@ class Lcd(Frame):
 
         from bomb_configs import component_wires
         self.component_wires = component_wires
+
+        # QUIZ STATE VARIABLES
+        self.quiz_questions = [
+            {
+                "type": "mc",
+                "prompt": "Which ghost is said to guard the cemetery gates?",
+                "choices": ["The Pale Watcher", "The Crimson Bride", "The Hollow King", "The Wraithling"],
+                "correct_choice": "A",
+                "code": "1234"
+            },
+            {
+                "type": "numeric",
+                "prompt": "How many skulls are carved above the manor door?",
+                "answer_number": 13
+            },
+            {
+                "type": "mc",
+                "prompt": "Which sigil repels the spirits?",
+                "choices": ["Vexus", "Mor'thal", "Eldrin", "Saros"],
+                "correct_choice": "C",
+                "code": "7777"
+            }
+        ]
+
+        self.quiz_index = 0
+        self.quiz_mode = None
+        self.quiz_state = None
+        self.quiz_keypad_buffer = ""
+        self.quiz_penalty_seconds = 15
 
 
         super().__init__(window, bg="black")
@@ -972,7 +1002,340 @@ class Lcd(Frame):
                 self.after(500, self.ritual_begin_round)
 
         do_count(0)
+        #End of Button Phase Methods
+    # -----------------------------------------
+    # Beginning of Quiz Phase Methods
 
+    def start_quiz_phase(self):
+        """Begin the spooky quiz phase."""
+        self.current_minigame = "quiz"
+
+        # Hide any previous phase frames if they exist
+        for attr in ("game_frame", "wires_frame", "wires_summary", "ritual_frame"):
+            try:
+                frame = getattr(self, attr, None)
+                if frame is not None:
+                    frame.grid_forget()
+            except:
+                pass
+
+        # Create quiz frame
+        self.quiz_frame = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00",
+            width=500,
+            height=400
+        )
+        self.quiz_frame.grid(
+            row=3,
+            column=0,
+            columnspan=3,
+            sticky="n",
+            padx=0,
+            pady=20
+        )
+        self.quiz_frame.grid_propagate(False)
+
+        # Title
+        Label(
+            self.quiz_frame,
+            text="FINAL QUIZ OF THE HAUNTED TERMINAL",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 20, "bold")
+        ).pack(pady=10)
+
+        # Question label
+        self.quiz_question_label = Label(
+            self.quiz_frame,
+            text="",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 16),
+            wraplength=480,
+            justify="left"
+        )
+        self.quiz_question_label.pack(pady=10)
+
+        # Choices label (for MC questions)
+        self.quiz_choices_label = Label(
+            self.quiz_frame,
+            text="",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 14),
+            justify="left"
+        )
+        self.quiz_choices_label.pack(pady=5)
+
+        # Instructions for lever mapping
+        self.quiz_lever_help = Label(
+            self.quiz_frame,
+            text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
+                 "Set one pattern, then press # to lock in.",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 12),
+            justify="left"
+        )
+        self.quiz_lever_help.pack(pady=5)
+        # Live display of toggle selection
+        self.quiz_toggle_label = Label(
+            self.quiz_frame,
+            text="Selected: None",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 14)
+        )
+        self.quiz_toggle_label.pack(pady=5)
+
+
+        # Keypad entry display (for numeric answers & codes)
+        self.quiz_entry_label = Label(
+            self.quiz_frame,
+            text="Keypad: ",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 16)
+        )
+        self.quiz_entry_label.pack(pady=5)
+
+        # Status / feedback
+        self.quiz_status_label = Label(
+            self.quiz_frame,
+            text="Answer the questions to escape...",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier New", 14)
+        )
+        self.quiz_status_label.pack(pady=10)
+
+        # Reset state and show first question
+        self.quiz_index = 0
+        self.quiz_keypad_buffer = ""
+        self.load_quiz_question()
+        self.after(100, self.quiz_poll_toggles)
+
+
+    def load_quiz_question(self):
+        """Display the current question and reset state."""
+        if self.quiz_index >= len(self.quiz_questions):
+            # All questions done – you win
+            self.quiz_status_label.config(text="You answered all questions. The house releases you...")
+            # You could call self.conclusion(success=True) here if you want:
+            # self.after(2000, lambda: self.conclusion(success=True))
+            return
+
+        q = self.quiz_questions[self.quiz_index]
+        self.quiz_mode = q["type"]
+        self.quiz_state = "awaiting_answer"
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+
+        self.quiz_question_label.config(text=f"Q{self.quiz_index + 1}: {q['prompt']}")
+
+        if q["type"] == "mc":
+            # Show choices A–D
+            choices_text = []
+            letters = ["A", "B", "C", "D"]
+            for i, choice in enumerate(q["choices"]):
+                choices_text.append(f"{letters[i]}) {choice}")
+            self.quiz_choices_label.config(text="\n".join(choices_text))
+            self.quiz_lever_help.config(
+                text="Levers: A=1000, B=0100, C=0010, D=0001 (left to right)\n"
+                     "Set one pattern, then press # to lock in."
+            )
+        else:
+            # Numeric question – no choices
+            self.quiz_choices_label.config(text="(Type your answer on the keypad, then press #.)")
+            self.quiz_lever_help.config(
+                text="Levers not used for this question.\n"
+                     "Use keypad digits, * to clear, # to submit."
+            )
+
+        self.quiz_status_label.config(text="Answer carefully... a wrong answer will anger the house.")
+
+    def quiz_poll_toggles(self):
+        """Live updates the toggle selection display."""
+        if self.current_minigame != "quiz":
+            return
+
+        choice = self.read_lever_choice()
+
+        if choice is None:
+            self.quiz_toggle_label.config(text="Selected: None")
+        else:
+            self.quiz_toggle_label.config(text=f"Selected: {choice}")
+
+        # Keep polling
+        self.after(100, self.quiz_poll_toggles)
+
+    def quiz_type_digit(self, digit):
+        """Append a digit to the keypad buffer for numeric answers / codes."""
+        if self.current_minigame != "quiz":
+            return
+        if len(self.quiz_keypad_buffer) >= 8:
+            return
+        self.quiz_keypad_buffer += digit
+        self.quiz_entry_label.config(text=f"Keypad: {self.quiz_keypad_buffer}")
+
+    def quiz_backspace(self):
+        """Clear the keypad buffer (like reset)."""
+        if self.current_minigame != "quiz":
+            return
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+
+    def read_lever_choice(self):
+        """
+        Read the toggle levers and map to A/B/C/D.
+        We assume 4 toggle pins in self.component_toggles (left → right).
+        Pattern mapping:
+            1000 -> A
+            0100 -> B
+            0010 -> C
+            0001 -> D
+        """
+        if not hasattr(self, "component_toggles"):
+            # No hardware attached; you can later simulate if needed
+            return None
+
+        if RPi:
+            bits = []
+            for pin in self.component_toggles:
+                up = (pin.value is True)
+                bits.append("1" if up else "0")
+            pattern = "".join(bits)
+        else:
+            # On non-RPi systems, default no choice
+            pattern = "0000"
+
+        mapping = {
+            "1000": "A",
+            "0100": "B",
+            "0010": "C",
+            "0001": "D"
+        }
+        return mapping.get(pattern, None)
+
+    def quiz_handle_submit(self):
+        """Real quiz logic for # submit button."""
+        if self.current_minigame != "quiz":
+            return
+
+        q = self.quiz_questions[self.quiz_index]
+
+        # --------------------------
+        # MULTIPLE CHOICE QUESTIONS
+        # --------------------------
+        if q["type"] == "mc":
+
+            # Step 1 — if waiting for lever input
+            if self.quiz_state == "awaiting_answer":
+                lever_choice = self.read_lever_choice()
+
+                if lever_choice is None:
+                    self.quiz_status_label.config(text="No lever selected!")
+                    return
+
+                if lever_choice != q["correct_choice"]:
+                    self.quiz_wrong_answer()
+                    return
+
+                # Lever was correct → now require keypad code
+                self.quiz_state = "awaiting_code"
+                self.quiz_status_label.config(text="Correct lever! Enter the code then press #.")
+                return
+
+            # Step 2 — waiting for keypad code
+            elif self.quiz_state == "awaiting_code":
+                if self.quiz_keypad_buffer == q["code"]:
+                    # MC question fully correct
+                    self.quiz_index += 1
+                    self.quiz_status_label.config(text="Correct! Proceeding...")
+                    self.after(300, self.load_quiz_question)
+                else:
+                    self.quiz_wrong_answer()
+                return
+
+        # --------------------------
+        # NUMERIC QUESTIONS
+        # --------------------------
+        elif q["type"] == "numeric":
+            if not self.quiz_keypad_buffer.isdigit():
+                self.quiz_status_label.config(text="Enter a number!")
+                return
+
+            player_num = int(self.quiz_keypad_buffer)
+
+            if player_num == q["answer_number"]:
+                self.quiz_index += 1
+                self.quiz_status_label.config(text="Correct! Next question...")
+                self.after(300, self.load_quiz_question)
+            else:
+                self.quiz_wrong_answer()
+            return
+
+    def quiz_wrong_answer(self):
+        """Apply time penalty + jump scare when the player is wrong."""
+        self.quiz_status_label.config(text="Wrong! The house SCREAMS at you!")
+        self.quiz_keypad_buffer = ""
+        self.quiz_entry_label.config(text="Keypad: ")
+        # time penalty
+        self.quiz_time_penalty(self.quiz_penalty_seconds)
+        # spooky popup
+        self.show_jumpscare()
+
+    def quiz_time_penalty(self, seconds):
+        """Reduce the bomb timer when you miss a question."""
+        if self._timer is not None:
+            try:
+                self._timer._value = max(0, self._timer._value - seconds)
+            except Exception as e:
+                print("Could not reduce timer:", e)
+
+    def show_jumpscare(self):
+        """Quick scary popup; tries to use jumpscare.png if available."""
+        try:
+            js = Toplevel(self)
+            js.configure(bg="black")
+            js.overrideredirect(True)
+            js.attributes("-topmost", True)
+
+            parent = self.winfo_toplevel()
+            parent.update_idletasks()
+            # match main window size
+            try:
+                w = parent.winfo_width()
+                h = parent.winfo_height()
+                x = parent.winfo_rootx()
+                y = parent.winfo_rooty()
+                js.geometry(f"{w}x{h}+{x}+{y}")
+            except:
+                js.geometry("1100x700")
+
+            # Try to load scary image
+            try:
+                img = Image.open("jumpscare.png")
+                img = img.resize((w, h))
+                self.jumpscare_image = ImageTk.PhotoImage(img)
+                Label(js, image=self.jumpscare_image, bg="black").pack(fill="both", expand=True)
+            except Exception as e:
+                print("JUMPSCARE IMAGE FAILED:", e)
+                Label(
+                    js,
+                    text="BOO!",
+                    fg="red",
+                    bg="black",
+                    font=("Courier New", 80, "bold")
+                ).pack(expand=True, fill="both")
+
+            # Auto-close after ~1.2 seconds
+            js.after(1200, js.destroy)
+        except Exception as e:
+            print("Error showing jumpscare:", e)
     # lets us pause/unpause the timer (7-segment display)
     def setTimer(self, timer):
         self._timer = timer
@@ -1141,7 +1504,9 @@ class Keypad(PhaseThread):
             # ======= ENTER (#) =======
                 elif str(key) == "#":
                     try:
-                        if self.gui.current_minigame == "wires":
+                        if self.gui.current_minigame == "quiz":
+                            self.gui.quiz_handle_submit()
+                        elif self.gui.current_minigame == "wires":
                             self.gui.wires_handle_submit() 
                         else:
                             self.gui.wordle_submit_row()
