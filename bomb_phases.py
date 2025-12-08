@@ -6,6 +6,7 @@
 
 # import the configs
 from bomb_configs import *
+strikes_left = NUM_STRIKES
 # other imports
 from tkinter import *
 import tkinter as tk
@@ -84,7 +85,7 @@ class Lcd(Frame):
         self.quiz_index = 0
         self.quiz_mode = None
         self.quiz_state = None
-        self.quiz_penalty_seconds = 15
+        self.quiz_penalty_seconds = 20
 
 
         super().__init__(window, bg="black")
@@ -183,8 +184,11 @@ class Lcd(Frame):
         #Strikes Left Label
         self._lstrikes = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Strikes left: ")
         self._lstrikes.grid(row=0, column=2, sticky="e", padx=150)
+        # Initialize strikes label with the correct number
+        from bomb_phases import strikes_left  # if needed, but usually not required inside same file
+        self._lstrikes["text"] = f"Strikes left: {strikes_left}"
 
-        
+
         # -----------------------------------------
         # Beginning of Wordle Phase Methods
 
@@ -258,7 +262,23 @@ class Lcd(Frame):
         self.current_row = 0
         self.current_col = 0
 
+    def addStrike(self):
+            """
+            Decrease the remaining strikes, update the label,
+            and end the game if you run out.
+            """
+            global strikes_left
+            strikes_left -= 1
+            if strikes_left < 0:
+                strikes_left = 0
 
+            # Update the GUI label
+            self._lstrikes["text"] = f"Strikes left: {strikes_left}"
+            print(f"[DEBUG] Strike taken! strikes_left={strikes_left}")
+
+            # If no strikes left, trigger a failure conclusion
+            if strikes_left <= 0:
+                self.conclusion(success=False)
 
     # Wordle Phase Methods
     def wordle_set_letter(self, row, col, letter):
@@ -603,16 +623,23 @@ class Lcd(Frame):
 
         # Check correctness
         if pattern == self.wires_target_pattern:
+            if self._timer:
+                self._timer._value += 20
+                print(f"[DEBUG] +20 seconds awarded! New time={self._timer._value}")
             self.wires_round_results.append(True)
-            self.wires_text.config(text="Correct alignment!\nThe energy surges through the walls...")
+            self.wires_text.config(text="Correct alignment!\nThe energy surges through the walls...\n 20 seconds have been added!")
             self.after(1500, self.wires_next_round)
             return
 
         # Incorrect submission, but user gets another try
         if self.current_attempt == 1:
+            if self._timer:
+                self._timer._value -= 20
+                print(f"[DEBUG] -20 seconds penalty! New time={self._timer._value}")
             self.current_attempt = 2
             self.wires_text.config(
                 text=f"Incorrect...\nThe current sputters.\n\n"
+                    f"20 seconds have been lost!\n\n"
                     f"Attempt {self.current_attempt}/2"
             )
             return
@@ -719,15 +746,18 @@ class Lcd(Frame):
             #If the user failed the wires phase
             Label(
                 self.wires_summary,
-                text="Result: FAILED",
+                text="Result: FAILED - STRIKE ADDED \n 30 seconds PENALTY",
                 fg="red",
                 bg="black",
                 font=("Courier New", 20, "bold")
             ).pack(pady=10)
 
             # Add a strike for failing the wires phase
-            global strikes_left
-            strikes_left -= 1
+            self.addStrike()
+            
+            if self._timer:
+                self._timer._value = max(0, self._timer._value - 30)
+                print(f"[DEBUG] -30 seconds penalty for failing wires phase! New time={self._timer._value}")
 
             #Start button phase after delay
             self.after(2000, self.start_button_phase)
@@ -917,6 +947,9 @@ class Lcd(Frame):
     def ritual_check_sequence(self):
         """Compare player input with target sequence and handle success/failure."""
         if self.ritual_user_input == self.ritual_sequence:
+            if self._timer:
+                self._timer._value += 20
+                print(f"[DEBUG] +20 seconds awarded! New time={self._timer._value}")
             # SUCCESS
             self.ritual_text.config(
                 text="The sigils resonate in harmony.\nThe ritual is successful!"
@@ -951,6 +984,9 @@ class Lcd(Frame):
                 self.ritual_text.config(
                     text="The ritual collapses!\nThe spirits are displeased..."
                 )
+                if self._timer:
+                    self._timer._value = max(0, self._timer._value - 30)
+                    print(f"[DEBUG] -30 seconds penalty! New time={self._timer._value}")
                 try:
                     self.addStrike()
                 except Exception as e:
@@ -1210,8 +1246,16 @@ class Lcd(Frame):
 
         if lever_choice == q["correct_choice"]:
             self.quiz_status_label.config(text="Correct!")
+
+            if self._timer:
+                self._timer._value += 20
+                print(f"[DEBUG] +20 seconds awarded! New time={self._timer._value}")
             self.quiz_index += 1
-            self.after(300, self.load_quiz_question)
+            if self.quiz_index >= len(self.quiz_questions):
+                self.after(300, self.end_game_success)
+                return
+            else:
+                self.after(300, self.load_quiz_question)
         else:
             self.quiz_wrong_answer()
 
@@ -1273,6 +1317,46 @@ class Lcd(Frame):
         except Exception as e:
             print("Error showing jumpscare:", e)
     # lets us pause/unpause the timer (7-segment display)
+
+    def end_game_success(self):
+        """Called when all quiz questions are answered correctly."""
+        # Hide the quiz frame
+        try:
+            self.quiz_frame.grid_forget()
+        except:
+            pass
+
+        # Stop keys / polling if needed
+        self.current_minigame = None
+
+        # Display a victory screen
+        win_frame = Frame(
+            self,
+            bg="black",
+            highlightthickness=2,
+            highlightbackground="#00ff00"
+        )
+        win_frame.grid(row=3, column=0, columnspan=3, pady=40)
+
+        Label(
+            win_frame,
+            text="🎉 YOU DEACTIVATED THE BOMB! 🎉",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier", 22, "bold")
+        ).pack(pady=10)
+
+        Label(
+            win_frame,
+            text="The spirits have been pacified...",
+            fg="#00ff00",
+            bg="black",
+            font=("Courier", 14)
+        ).pack(pady=10)
+
+        # Optional: stop timers, blinking LEDs, etc.
+        self.countdown_running = False
+
     def setTimer(self, timer):
         self._timer = timer
 
