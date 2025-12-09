@@ -9,6 +9,21 @@ from bomb_configs import *
 # import the phases
 from bomb_phases import *
 
+import pygame
+
+# Play background music only when running on the Pi
+if RPi:
+    pygame.init()
+    pygame.mixer.init()
+
+    try:
+        pygame.mixer.music.load("horror.mp3")
+        pygame.mixer.music.play(-1)  # Loop forever
+        print("[DEBUG] Background music playing...")
+    except Exception as e:
+        print("[DEBUG] Could not load music:", e)
+
+
 ###########
 # functions
 ###########
