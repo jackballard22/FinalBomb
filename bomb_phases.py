@@ -265,23 +265,23 @@ class Lcd(Frame):
 
     # Function to add a strike to the bomb
     def addStrike(self):
-            """
-            Decrease the remaining strikes, update the label,
-            and end the game if you run out.
-            """
-            global strikes_left
-            strikes_left -= 1
-            if strikes_left < 0:
-                strikes_left = 0
+        global strikes_left
+        strikes_left -= 1
+        if strikes_left < 0:
+            strikes_left = 0
 
-            # Update the GUI label
+        # ALWAYS update the root Lcd instance
+        root = self.winfo_toplevel()
+        try:
+            root._lstrikes["text"] = f"Strikes left: {strikes_left}"
+        except:
             self._lstrikes["text"] = f"Strikes left: {strikes_left}"
-            self._lstrikes.update_idletasks()
-            print(f"[DEBUG] Strike taken! strikes_left={strikes_left}")
 
-            # If no strikes left, trigger a failure conclusion
-            if strikes_left <= 0:
-                self.conclusion(success=False)
+        print(f"[DEBUG] Strike taken! strikes_left={strikes_left}")
+
+        if strikes_left <= 0:
+            self.conclusion(success=False)
+
 
     # Wordle Phase Methods
     def wordle_set_letter(self, row, col, letter):
