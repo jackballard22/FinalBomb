@@ -183,10 +183,9 @@ class Lcd(Frame):
         self._ltoggles.grid(row=2, column=1, columnspan=3, sticky="e", padx=150)
 
         #Strikes Left Label
-        self._lstrikes = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Strikes left: ")
+        self._lstrikes = Label(self, bg="black", fg="#00ff00", font=("Courier New", 18), text="Strikes left: {strikes_left}")
         self._lstrikes.grid(row=0, column=2, sticky="e", padx=150)
         # Initialize strikes label with the correct number
-        from bomb_phases import strikes_left  # if needed, but usually not required inside same file
         self._lstrikes["text"] = f"Strikes left: {strikes_left}"
 
 
@@ -277,6 +276,7 @@ class Lcd(Frame):
 
             # Update the GUI label
             self._lstrikes["text"] = f"Strikes left: {strikes_left}"
+            self._lstrikes.update_idletasks()
             print(f"[DEBUG] Strike taken! strikes_left={strikes_left}")
 
             # If no strikes left, trigger a failure conclusion
@@ -455,6 +455,7 @@ class Lcd(Frame):
 
         # If WOrdle phase is failed, add a strike
         self.addStrike()
+        self.start_wires_phase()
 
     # Confirm letter method for T9 input
     def wordle_confirm_letter(self):
